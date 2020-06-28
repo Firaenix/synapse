@@ -2,23 +2,23 @@
 ## A bittorrent inspired, highly modular p2p data transfer system.
 
 ### To Do:
-[] WebRTC
+[ ] WebRTC
 
-[] TCP
+[ ] TCP
 
-[] HTTP
+[ ] HTTP
 
-[] Browser compatibility
+[ ] Browser compatibility
 
-[] Node JS Server
+[ ] Node JS Server
 
-[] New Metainfo Spec
+[ ] New Metainfo Spec
 
-[] Bittorrent Tracker and DHT compatibility
+[ ] Bittorrent Tracker and DHT compatibility
 
-[] Signatures in Metainfo
+[ ] Signatures in Metainfo
 
-[] Merkel Tree for file pieces hash
+[ ] Merkel Tree for file pieces hash
 
 ### With thanks to:
 - WebTorrent Creators
