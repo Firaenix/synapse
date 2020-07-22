@@ -1,8 +1,8 @@
 import { SupportedHashAlgorithms } from './SupportedHashAlgorithms';
 export interface Metainfo {
-  name: Uint8Array;
+  name: Buffer;
   'piece length': number;
-  pieces: Uint8Array;
+  pieces: Buffer[];
 
   'piece hash algo': SupportedHashAlgorithms;
 
@@ -11,5 +11,5 @@ export interface Metainfo {
 
 export interface File {
   length: number;
-  path: Uint8Array;
+  path: Buffer;
 }

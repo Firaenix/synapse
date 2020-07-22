@@ -3,10 +3,16 @@ import { MetainfoFile } from '../models/MetainfoFile';
 import { chunkBuffer } from './chunkBuffer';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { HashService } from '../services/HashService';
+import { Metainfo } from '../models/Metainfo';
+import bencode from 'bencode';
 
 export interface DiskFile {
-  file: Uint8Array;
-  filePath: Uint8Array;
+  file: Buffer;
+  filePath: Buffer;
+}
+
+export interface SeederData {
+  fileChunks: Buffer[];
 }
 
 export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hashalgo: SupportedHashAlgorithms = SupportedHashAlgorithms.sha1): MetainfoFile => {
@@ -15,21 +21,29 @@ export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hasha
   const singleBuf = diskFiles.map((x) => x.file).reduce((p, c) => Buffer.from([...p, ...c]));
   const pieceLength = calculatePieceLength(singleBuf.length);
 
-  const piecesArray: Buffer[] = [];
+  let piecesArray: Buffer[] = [];
   for (const diskFile of diskFiles) {
     const fileArray = chunkBuffer(diskFile.file, pieceLength);
-    piecesArray.push(fileArray.map((x) => Buffer.from(hasher.hash(x, hashalgo))).reduce((p, c) => Buffer.from([...p, ...c])));
+    const fileHashPieces = fileArray.map((x) => Buffer.from(hasher.hash(x, hashalgo)));
+    piecesArray = piecesArray.concat(fileHashPieces);
   }
 
   const files = diskFiles.map((x) => ({ length: x.file.length, path: x.filePath }));
 
+  const metaInfo: Metainfo = {
+    name: Buffer.from(torrentName),
+    pieces: piecesArray,
+    'piece length': pieceLength,
+    'piece hash algo': hashalgo,
+    files
+  };
+
+  // to get infohash, metainfo to bencode buffer then hash
+  const bencodedMetaInfo = bencode.encode(metaInfo);
+  const infohash = hasher.hash(bencodedMetaInfo, hashalgo);
+
   return {
-    info: {
-      name: Buffer.from(torrentName),
-      pieces: Buffer.from(piecesArray.join('')),
-      'piece length': pieceLength,
-      'piece hash algo': hashalgo,
-      files
-    }
+    info: metaInfo,
+    infohash
   };
 };

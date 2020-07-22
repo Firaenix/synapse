@@ -3,15 +3,15 @@ import * as blake3 from 'blake3';
 import crypto from 'crypto';
 
 interface IHashService {
-  hash: (buf: Uint8Array, algorithm: SupportedHashAlgorithms) => Uint8Array;
+  hash: (buf: Buffer, algorithm: SupportedHashAlgorithms) => Buffer;
 }
-type Strats = { [algo: string]: (buf: Uint8Array) => Uint8Array };
+type Strats = { [algo: string]: (buf: Buffer) => Buffer };
 
-const Blake3Hash = (buf: Uint8Array): Uint8Array => {
+const Blake3Hash = (buf: Buffer): Buffer => {
   return blake3.createHash().update(buf).digest();
 };
 
-const CryptoHash = (algo: string) => (buf: Uint8Array): Uint8Array => {
+const CryptoHash = (algo: string) => (buf: Buffer): Buffer => {
   const hash = crypto.createHash(algo);
   return hash.update(buf).digest();
 };
@@ -23,7 +23,7 @@ export class HashService implements IHashService {
     [SupportedHashAlgorithms.sha256]: CryptoHash('sha256')
   };
 
-  public hash = (buf: Uint8Array, algorithm: SupportedHashAlgorithms) => {
+  public hash = (buf: Buffer, algorithm: SupportedHashAlgorithms) => {
     return this.strategies[algorithm](buf);
   };
 }
