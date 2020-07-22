@@ -4,7 +4,7 @@ import { Wire, Extension, HandshakeExtensions, ExtendedHandshake } from '@firaen
 import SimplePeer from 'simple-peer';
 import wrtc from 'wrtc';
 import './typings';
-import fs from 'fs';
+import fs, { promises as fsPromises } from 'fs';
 import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import path from 'path';
@@ -26,7 +26,7 @@ const files = paths.map((p) => {
   };
 });
 
-const metainfoFile = createMetaInfo(files, 'torrents', SupportedHashAlgorithms.sha1);
+const metainfoFile = createMetaInfo(files, 'torrents', SupportedHashAlgorithms.sha256);
 console.log(metainfoFile);
 // class BitcoinExtension extends Extension {
 //   public name = 'bitcoin';
@@ -55,7 +55,7 @@ console.log(metainfoFile);
 
 //   });
 
-const infoHashString = Buffer.from(metainfoFile.infohash).toString('hex');
+const infoHashString = Buffer.from(metainfoFile.infohash).toString('hex').slice(0, 40);
 const fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
 const hasher = new HashService();
 
@@ -115,6 +115,12 @@ const hasher = new HashService();
 
     const pieceHash = hasher.hash(pieceBuf, algo);
     console.log('Does piece match hash?', pieceHash.equals(hash));
+
+    // fs.writeFileSync('./filedownload', pieceBuf, { mode: 'a' });
+    (async () => {
+      // fsPromises.('./downloadedfile');
+      await fsPromises.appendFile('./downloadedfile', pieceBuf);
+    })();
   });
 
   leechWire.on('unchoke', () => {
