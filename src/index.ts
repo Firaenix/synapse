@@ -44,8 +44,29 @@ const hasher = new HashService();
  */
 const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId: string, bitfield: Bitfield, fileBufferChunks?: Buffer[]) => {
   let peerBitfield: Bitfield | undefined;
+  const downloadedPieces: Buffer[] = [];
 
-  mePeer.on('piece', (index: number, offset: number, pieceBuf: Buffer) => {
+  const finishedWithPiece = async (index: number, pieceBuffer: Buffer) => {
+    console.log(mePeer.wireName, 'Finished with piece', index);
+    // downloadedPieces.splice(index, 0, pieceBuffer);
+    downloadedPieces.push(pieceBuffer);
+    console.log(mePeer.wireName, 'Downloaded piece length', downloadedPieces.length, 'pieces length', bitfield.buffer.length);
+
+    // Still need more pieces
+    if (downloadedPieces.length < bitfield.buffer.length) {
+      return;
+    }
+
+    // We are done! Say we arent interested anymore
+    mePeer.uninterested();
+    console.log(mePeer.wireName, 'finished downloading, uninterested');
+
+    // Concatenate buffer together and flush to disk.
+    await fsPromises.writeFile('./file.epub', downloadedPieces.join(), { encoding: 'utf-8' });
+    console.log(mePeer.wireName, 'Wrote file to disk', index);
+  };
+
+  mePeer.on('piece', async (index: number, offset: number, pieceBuf: Buffer) => {
     console.log('Leecher got piece', index, offset, pieceBuf);
 
     const algo = metaInfo.info['piece hash algo'];
@@ -55,11 +76,18 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
     const pieceHash = hasher.hash(pieceBuf, algo);
     console.log(mePeer.wireName, 'Does piece match hash?', pieceHash.equals(hash));
 
-    // fs.writeFileSync('./filedownload', pieceBuf, { mode: 'a' });
-    // (async () => {
-    //   // fsPromises.('./downloadedfile');
-    //   await fsPromises.appendFile('./downloadedfile', pieceBuf);
-    // })();
+    // Checksum failed - re-request piece
+    if (!pieceHash.equals(hash)) {
+      mePeer.request(index, offset, metaInfo.info['piece length'], (err) => {
+        console.error(mePeer.wireName, 'Error requesting piece again', index, err);
+      });
+      return;
+    }
+
+    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
+    mePeer.have(index);
+    console.log(mePeer.wireName, 'Broadcasted that we have piece', index);
+    await finishedWithPiece(index, pieceBuf);
   });
 
   // 4. Recieve have requests
@@ -80,18 +108,18 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
   mePeer.on('bitfield', (recievedBitfield: Bitfield) => {
     console.log(mePeer.wireName, 'recieved bitfield from peer', recievedBitfield);
     peerBitfield = recievedBitfield;
-    const peerBitfieldBuffer = peerBitfield.buffer;
+    const pieces = metaInfo.info.pieces;
 
     console.log(mePeer.wireName, 'Bitfield length', recievedBitfield.buffer.length);
 
-    if (peerBitfieldBuffer.every((x) => x === 0)) {
+    if (pieces.every((_, i) => !peerBitfield?.get(i))) {
       // the peer has no pieces, not interested in talking to you...
       mePeer.uninterested();
       console.log(mePeer.wireName, 'Peer has no pieces, uninterested');
       return;
     }
 
-    for (let index = 0; index < peerBitfieldBuffer.length; index++) {
+    for (let index = 0; index < pieces.length; index++) {
       // Do they have a piece?
       const peerHasPiece = peerBitfield.get(index);
       const iHavePiece = bitfield.get(index);
@@ -128,6 +156,7 @@ const infoHashString = Buffer.from(metainfoFile.infohash).toString('hex').slice(
 const fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
 // const hasher = new HashService();
 
+// This will eventually be a wrapper for WebRTC Peers
 (async () => {
   const seedWire = new Wire('seeder');
   const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
