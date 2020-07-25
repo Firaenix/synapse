@@ -16,7 +16,7 @@
   "author": "Firaenix",
   "license": "WTFPL",
   "dependencies": {
-    "@firaenix/bittorrent-protocol": "^3.2.23",
+    "@firaenix/bittorrent-protocol": "^3.2.25",
     "@types/bencode": "^2.0.0",
     "@types/node": "^14.0.23",
     "@types/simple-peer": "^9.6.0",
@@ -24,6 +24,7 @@
     "@typescript-eslint/eslint-plugin": "^2.29.0",
     "@typescript-eslint/parser": "^2.29.0",
     "bencode": "^2.0.1",
+    "bitfield": "^3.0.0",
     "blake3": "^2.1.4",
     "block-stream2": "^2.0.0",
     "browserify": "^16.5.1",

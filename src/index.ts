@@ -11,6 +11,9 @@ import path from 'path';
 import util from 'util';
 import { HashService } from './services/HashService';
 import { chunkBuffer } from './utils/chunkBuffer';
+import Bitfield from 'bitfield';
+import { Client } from './Client';
+import { MetainfoFile } from './models/MetainfoFile';
 
 const readPath = path.join(__dirname, '..', 'torrents');
 
@@ -28,64 +31,114 @@ const files = paths.map((p) => {
 
 const metainfoFile = createMetaInfo(files, 'torrents', SupportedHashAlgorithms.sha256);
 console.log(metainfoFile);
-// class BitcoinExtension extends Extension {
-//   public name = 'bitcoin';
-//   public requirePeer = true;
 
-//   constructor(wire: Wire) {
-//     super(wire);
-//   }
+// const client = new Client();
+// client.addMetainfo(metainfoFile)
+const hasher = new HashService();
 
-//   public onHandshake = (infoHash: string, peerId: string, extensions: HandshakeExtensions) => {
-//     console.log(this.wire.wireName, 'onHandshake', infoHash, peerId, extensions);
-//     this.wire.handshake(infoHash, peerId);
-//   };
+/**
+ * Read comments in here in reverse for the flow
+ * @param mePeer
+ * @param infoHash
+ * @param peerId
+ */
+const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId: string, bitfield: Bitfield, fileBufferChunks?: Buffer[]) => {
+  let peerBitfield: Bitfield | undefined;
 
-//   public onExtendedHandshake = (handshake: ExtendedHandshake) => {
-//     console.log(this.wire.wireName, 'onExtendedHandshake', handshake);
-//   };
+  mePeer.on('piece', (index: number, offset: number, pieceBuf: Buffer) => {
+    console.log('Leecher got piece', index, offset, pieceBuf);
 
-//   public onMessage = (buf: Buffer) => {
-//     console.log(this.wire.wireName, 'NewExtension incoming', bencode.decode(buf));
-//   };
-// }
+    const algo = metaInfo.info['piece hash algo'];
+    const hash = metaInfo.info.pieces[index];
+    console.log(mePeer.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
 
-// const seed = (seedWire: Wire) =>
-//   new Promise((res) => {
+    const pieceHash = hasher.hash(pieceBuf, algo);
+    console.log(mePeer.wireName, 'Does piece match hash?', pieceHash.equals(hash));
 
-//   });
+    // fs.writeFileSync('./filedownload', pieceBuf, { mode: 'a' });
+    // (async () => {
+    //   // fsPromises.('./downloadedfile');
+    //   await fsPromises.appendFile('./downloadedfile', pieceBuf);
+    // })();
+  });
+
+  // 4. Recieve have requests
+  mePeer.on('request', (index: number, offset: number, length: number) => {
+    console.log(mePeer.wireName, 'Incoming request ', index, offset, length);
+
+    if (!fileBufferChunks) {
+      console.log(mePeer.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
+      mePeer.bitfield(new Bitfield(metainfoFile.info.pieces.length));
+      return;
+    }
+
+    mePeer.piece(index, offset, fileBufferChunks[index]);
+  });
+
+  // 3. On recieved Bitfield, go through it and remember the pieces that the peer has.
+  // Request all the pieces that the peer has but you dont.
+  mePeer.on('bitfield', (recievedBitfield: Bitfield) => {
+    console.log(mePeer.wireName, 'recieved bitfield from peer', recievedBitfield);
+    peerBitfield = recievedBitfield;
+    const peerBitfieldBuffer = peerBitfield.buffer;
+
+    console.log(mePeer.wireName, 'Bitfield length', recievedBitfield.buffer.length);
+
+    if (peerBitfieldBuffer.every((x) => x === 0)) {
+      // the peer has no pieces, not interested in talking to you...
+      mePeer.uninterested();
+      console.log(mePeer.wireName, 'Peer has no pieces, uninterested');
+      return;
+    }
+
+    for (let index = 0; index < peerBitfieldBuffer.length; index++) {
+      // Do they have a piece?
+      const peerHasPiece = peerBitfield.get(index);
+      const iHavePiece = bitfield.get(index);
+
+      // Not interested if I have piece
+      if (iHavePiece) {
+        continue;
+      }
+
+      // Not interested if you dont have piece
+      if (!peerHasPiece) {
+        continue;
+      }
+
+      mePeer.request(index, metaInfo.info['piece length'] * index, metaInfo.info['piece length'], (err) => {
+        console.error(mePeer.wireName, 'Error requesting piece', index, err);
+      });
+    }
+  });
+
+  // 2. On recieved Extended Handshake (normal handshake follows up with extended handshake), send Bitfield
+  mePeer.on('extended', (...data: unknown[]) => {
+    console.log(mePeer.wireName, 'Incoming handshake from ', data);
+
+    mePeer.unchoke();
+    mePeer.bitfield(bitfield);
+  });
+
+  // 1. Send Handshake
+  mePeer.handshake(infoHash, peerId);
+};
 
 const infoHashString = Buffer.from(metainfoFile.infohash).toString('hex').slice(0, 40);
 const fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
-const hasher = new HashService();
+// const hasher = new HashService();
 
 (async () => {
   const seedWire = new Wire('seeder');
+  const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
+  for (let i = 0; i <= metainfoFile.info.pieces.length; i++) {
+    seedBitfield.set(i, true);
+  }
+
   const seederPeerId = Buffer.from(hasher.hash(Buffer.from('seeder'), SupportedHashAlgorithms.sha1)).toString('hex');
   // seedWire.use((w) => new BitcoinExtension(w));
   const leechWire = new Wire('leech');
   const leechPeerId = Buffer.from(hasher.hash(Buffer.from('leech'), SupportedHashAlgorithms.sha1)).toString('hex');
-  // leechWire.use((w) => new BitcoinExtension(w));
-
-  seedWire.on('handshake', (...data: unknown[]) => {
-    console.log(seedWire.wireName, 'Incoming handshake from ', data);
-
-    seedWire.handshake(infoHashString, seederPeerId, { bicoin: true });
-  });
-
-  seedWire.on('extended', (...data: unknown[]) => {
-    console.log(seedWire.wireName, 'Incoming extended handshake from ', data);
-    seedWire.unchoke();
-  });
-
-  seedWire.on('request', (index: number, offset: number, length: number) => {
-    console.log('SEEDER: Leech requested', index, offset, length);
-    seedWire.piece(index, offset, fileBufferChunks[index]);
-  });
-
-  seedWire.on('piece', (index: number, offset: number, pieceBuf: Buffer) => {
-    console.log('Seeder got piece', index, offset, pieceBuf);
-  });
 
   const seedPeer = new SimplePeer({ wrtc, initiator: true });
   seedPeer.pipe(seedWire).pipe(seedPeer);
@@ -102,39 +155,6 @@ const hasher = new HashService();
     seedPeer.signal(data);
   });
 
-  leechWire.on('extended', async (...data: unknown[]) => {
-    console.log(leechWire.wireName, 'Incoming extended handshake from ', data);
-  });
-
-  leechWire.on('piece', (index: number, offset: number, pieceBuf: Buffer) => {
-    console.log('Leecher got piece', index, offset, pieceBuf);
-
-    const algo = metainfoFile.info['piece hash algo'];
-    const hash = metainfoFile.info.pieces[index];
-    console.log('Leecher: Checking if piece', index, 'passes', algo, 'check', hash);
-
-    const pieceHash = hasher.hash(pieceBuf, algo);
-    console.log('Does piece match hash?', pieceHash.equals(hash));
-
-    // fs.writeFileSync('./filedownload', pieceBuf, { mode: 'a' });
-    (async () => {
-      // fsPromises.('./downloadedfile');
-      await fsPromises.appendFile('./downloadedfile', pieceBuf);
-    })();
-  });
-
-  leechWire.on('unchoke', () => {
-    console.log('Leech got unchoke');
-
-    for (let index = 0; index < metainfoFile.info.pieces.length; index++) {
-      const piece = metainfoFile.info.pieces[index];
-      console.log('leech requests piece', index, piece);
-
-      leechWire.request(index, index * piece.length, piece.length, (...args) => {
-        console.log('LEECH REQUEST ARGS', args);
-      });
-    }
-  });
-
-  leechWire.handshake(infoHashString, leechPeerId);
+  peerFlow(seedWire, metainfoFile, infoHashString, seederPeerId, seedBitfield, fileBufferChunks);
+  peerFlow(leechWire, metainfoFile, infoHashString, leechPeerId, new Bitfield(metainfoFile.info.pieces.length));
 })();
