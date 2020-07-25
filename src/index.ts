@@ -35,6 +35,7 @@ console.log(metainfoFile);
 // const client = new Client();
 // client.addMetainfo(metainfoFile)
 const hasher = new HashService();
+const fullfilearray = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
 
 /**
  * Read comments in here in reverse for the flow
@@ -62,7 +63,7 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
     console.log(mePeer.wireName, 'finished downloading, uninterested');
 
     // Concatenate buffer together and flush to disk.
-    await fsPromises.writeFile('./file.epub', downloadedPieces.join(), { encoding: 'utf-8' });
+    await fsPromises.writeFile('./file.epub', fullfilearray.join(), { encoding: 'utf-8' });
     console.log(mePeer.wireName, 'Wrote file to disk', index);
   };
 
@@ -153,7 +154,7 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
 };
 
 const infoHashString = Buffer.from(metainfoFile.infohash).toString('hex').slice(0, 40);
-const fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
+
 // const hasher = new HashService();
 
 // This will eventually be a wrapper for WebRTC Peers
@@ -184,6 +185,6 @@ const fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfoFile.info[
     seedPeer.signal(data);
   });
 
-  peerFlow(seedWire, metainfoFile, infoHashString, seederPeerId, seedBitfield, fileBufferChunks);
+  peerFlow(seedWire, metainfoFile, infoHashString, seederPeerId, seedBitfield, fullfilearray);
   peerFlow(leechWire, metainfoFile, infoHashString, leechPeerId, new Bitfield(metainfoFile.info.pieces.length));
 })();
