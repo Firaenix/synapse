@@ -22,6 +22,7 @@ const paths = fs.readdirSync(readPath);
 const files = paths.map((p) => {
   const filePath = path.join(readPath, p);
   const fileBuf = fs.readFileSync(filePath);
+  // fs.writeFileSync('./file-straight-write.epub', fileBuf);
 
   return {
     file: fileBuf,
@@ -37,6 +38,9 @@ console.log(metainfoFile);
 const hasher = new HashService();
 const fullfilearray = files.map((x) => chunkBuffer(x.file, metainfoFile.info['piece length'])).flat();
 
+// fs.writeFileSync('./file-chunked-concat.epub', Buffer.concat(fullfilearray), { encoding: 'utf-8' });
+// fs.writeFileSync('./file-mapped.epub', Buffer.concat(files.map((x) => x.file)), { encoding: 'utf-8' });
+
 /**
  * Read comments in here in reverse for the flow
  * @param mePeer
@@ -45,16 +49,15 @@ const fullfilearray = files.map((x) => chunkBuffer(x.file, metainfoFile.info['pi
  */
 const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId: string, bitfield: Bitfield, fileBufferChunks?: Buffer[]) => {
   let peerBitfield: Bitfield | undefined;
-  const downloadedPieces: Buffer[] = [];
+  const downloadedPieces: Array<Buffer> = [];
 
   const finishedWithPiece = async (index: number, pieceBuffer: Buffer) => {
     console.log(mePeer.wireName, 'Finished with piece', index);
-    // downloadedPieces.splice(index, 0, pieceBuffer);
-    downloadedPieces.push(pieceBuffer);
+    downloadedPieces.splice(index, 0, pieceBuffer);
     console.log(mePeer.wireName, 'Downloaded piece length', downloadedPieces.length, 'pieces length', bitfield.buffer.length);
 
     // Still need more pieces
-    if (downloadedPieces.length < bitfield.buffer.length) {
+    if (downloadedPieces.length < metaInfo.info.pieces.length) {
       return;
     }
 
@@ -62,8 +65,11 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
     mePeer.uninterested();
     console.log(mePeer.wireName, 'finished downloading, uninterested');
 
+    console.log(downloadedPieces);
+    console.log(downloadedPieces.map((x) => x.toString()));
+
     // Concatenate buffer together and flush to disk.
-    await fsPromises.writeFile('./file.epub', fullfilearray.join(), { encoding: 'utf-8' });
+    await fsPromises.writeFile('./file.epub', Buffer.concat(downloadedPieces));
     console.log(mePeer.wireName, 'Wrote file to disk', index);
   };
 
