@@ -17,10 +17,10 @@ import { MetainfoFile } from './models/MetainfoFile';
 
 const readPath = path.join(__dirname, '..', 'torrents');
 
-const paths = fs.readdirSync(readPath, { withFileTypes: true });
+const paths = fs.readdirSync(readPath);
 
 const files = paths.map((p) => {
-  const filePath = path.join(readPath, p.);
+  const filePath = path.join(readPath, p);
   const fileBuf = fs.readFileSync(filePath);
   // fs.writeFileSync('./file-straight-write.epub', fileBuf);
 
