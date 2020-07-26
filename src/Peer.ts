@@ -2,12 +2,13 @@ import { Wire } from '@firaenix/bittorrent-protocol';
 import { promises as fsPromises } from 'fs';
 import Bitfield from 'bitfield';
 import { MetainfoFile } from './models/MetainfoFile';
-import { hasher, metainfoFile } from './index';
+import { hasher } from './index';
 import { HashService } from './services/HashService';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { v4 as uuid } from 'uuid';
 import { DiskFile } from './models/DiskFile';
 import { chunkBuffer } from './utils/chunkBuffer';
+import path from 'path';
 
 export class Peer {
   private downloadedPieces: Array<Buffer> = [];
@@ -84,8 +85,11 @@ export class Peer {
         throw new Error('Buffer isnt the same length as the file');
       }
 
+      const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
+      console.log('Saving to ', filePath);
+      await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
       // Create folders if necessary
-      await fsPromises.writeFile(`./outputfiles/${file.path}`, fileBytes);
+      await fsPromises.writeFile(filePath, fileBytes);
       nextOffset = file.length;
     }
 
@@ -168,7 +172,7 @@ export class Peer {
 
     if (!this.fileBufferChunks) {
       console.log(this.wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
-      this.wire.bitfield(new Bitfield(metainfoFile.info.pieces.length));
+      this.wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
       return;
     }
 

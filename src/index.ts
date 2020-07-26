@@ -15,29 +15,30 @@ import Bitfield from 'bitfield';
 import { Client } from './Client';
 import { TorrentInstance } from './services/TorrentInstance';
 import { Peer } from './Peer';
-
-const readPath = path.join(__dirname, '..', 'torrents');
-
-const paths = fs.readdirSync(readPath);
-
-const files = paths.map((p) => {
-  const filePath = path.join(readPath, p);
-  const fileBuf = fs.readFileSync(filePath);
-  // fs.writeFileSync('./file-straight-write.epub', fileBuf);
-
-  return {
-    file: fileBuf,
-    filePath: Buffer.from(p)
-  };
-});
-
-export const metainfoFile = createMetaInfo(files, 'torrents', SupportedHashAlgorithms.blake3);
+import recursiveReadDir from './utils/recursiveReadDir';
 
 export const hasher = new HashService();
-// const hasher = new HashService();
 
-// This will eventually be a wrapper for WebRTC Peers
 (async () => {
+  const readPath = path.join(__dirname, '..', 'torrents');
+
+  const paths = await recursiveReadDir(readPath);
+
+  const files = paths.map((p) => {
+    console.log(readPath, p);
+    const filePath = path.relative('.', p);
+    console.log(filePath);
+    const fileBuf = fs.readFileSync(filePath);
+    // fs.writeFileSync('./file-straight-write.epub', fileBuf);
+
+    return {
+      file: fileBuf,
+      filePath: Buffer.from(filePath)
+    };
+  });
+
+  const metainfoFile = createMetaInfo(files, 'downloaded_torrents', SupportedHashAlgorithms.blake3);
+
   const seedWire = new Wire('seeder');
   const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
   for (let i = 0; i <= metainfoFile.info.pieces.length; i++) {
