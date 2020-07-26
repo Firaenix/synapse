@@ -17,10 +17,10 @@ import { MetainfoFile } from './models/MetainfoFile';
 
 const readPath = path.join(__dirname, '..', 'torrents');
 
-const paths = fs.readdirSync(readPath);
+const paths = fs.readdirSync(readPath, { withFileTypes: true });
 
 const files = paths.map((p) => {
-  const filePath = path.join(readPath, p);
+  const filePath = path.join(readPath, p.);
   const fileBuf = fs.readFileSync(filePath);
   // fs.writeFileSync('./file-straight-write.epub', fileBuf);
 
@@ -65,11 +65,30 @@ const peerFlow = (mePeer: Wire, metaInfo: MetainfoFile, infoHash: string, peerId
     mePeer.uninterested();
     console.log(mePeer.wireName, 'finished downloading, uninterested');
 
-    console.log(downloadedPieces);
-    console.log(downloadedPieces.map((x) => x.toString()));
+    const fullFiles = Buffer.concat(downloadedPieces);
+
+    let nextOffset = 0;
+    // Split fullFiles into separate buffers based on the length of each file
+    for (const file of metaInfo.info.files) {
+      console.log(mePeer.wireName, 'Splitting file', file.path.toString(), file.length);
+
+      console.log(mePeer.wireName, 'Reading from offset', nextOffset, 'to', file.length);
+
+      const fileBytes = fullFiles.subarray(nextOffset, file.length + nextOffset);
+      console.log(mePeer.wireName, 'Split file:', fileBytes.length);
+
+      if (fileBytes.length !== file.length) {
+        throw new Error('Buffer isnt the same length as the file');
+      }
+
+      // Create folders if necessary
+
+      await fsPromises.writeFile(`./outputfiles/${file.path}`, fileBytes);
+      nextOffset = file.length;
+    }
 
     // Concatenate buffer together and flush to disk.
-    await fsPromises.writeFile('./file.epub', Buffer.concat(downloadedPieces));
+    // await fsPromises.writeFile('./file.epub', );
     console.log(mePeer.wireName, 'Wrote file to disk', index);
   };
 
