@@ -5,15 +5,7 @@ import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { HashService } from '../services/HashService';
 import { Metainfo } from '../models/Metainfo';
 import bencode from 'bencode';
-
-export interface DiskFile {
-  file: Buffer;
-  filePath: Buffer;
-}
-
-export interface SeederData {
-  fileChunks: Buffer[];
-}
+import { DiskFile } from '../models/DiskFile';
 
 export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hashalgo: SupportedHashAlgorithms = SupportedHashAlgorithms.sha1): MetainfoFile => {
   const hasher = new HashService();

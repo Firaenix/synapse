@@ -1,15 +1,14 @@
 import { MetainfoFile } from './models/MetainfoFile';
 import { TorrentInstance } from './services/TorrentInstance';
-import { Extension } from '@firaenix/bittorrent-protocol';
+import Wire, { Extension } from '@firaenix/bittorrent-protocol';
 import { HashService } from './services/HashService';
+import { DiskFile } from './models/DiskFile';
 
 export interface Settings {
-  metainfos: MetainfoFile[];
   extensions?: Extension[];
 }
 
 const defaultSettings: Settings = {
-  metainfos: [],
   // Add Bitcoin, ECDH
   extensions: []
 };
@@ -22,17 +21,17 @@ export class Client {
   private torrents: TorrentInstance[];
   private hashService = new HashService();
 
-  constructor(settings: Settings = defaultSettings) {
-    for (const metainfo of settings.metainfos) {
-      this.torrents.push(new TorrentInstance(metainfo, this.hashService));
-    }
-  }
+  constructor(settings: Settings = defaultSettings) {}
 
   /**
    * Starts Seeding
    * @param metainfo
    */
-  public addMetainfo = (metainfo: MetainfoFile) => {
-    this.torrents.push(new TorrentInstance(metainfo, this.hashService));
+  public addMetainfo = (metainfo: MetainfoFile, files: DiskFile[] | undefined, wire: Wire) => {
+    this.torrents.push(new TorrentInstance(metainfo, files, wire, this.hashService));
   };
+
+  public addPeer = () => {
+    this.
+  }
 }
