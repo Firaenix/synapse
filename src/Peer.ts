@@ -114,7 +114,9 @@ export class Peer {
     // Checksum failed - re-request piece
     if (!pieceHash.equals(hash)) {
       this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
-        console.error(this.wire.wireName, 'Error requesting piece again', index, err);
+        if (err) {
+          console.error(this.wire.wireName, 'Error requesting piece again', index, err);
+        }
       });
       return;
     }
@@ -154,7 +156,9 @@ export class Peer {
       }
 
       this.wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
-        console.error(this.wire.wireName, 'Error requesting piece', index, err);
+        if (err) {
+          console.error(this.wire.wireName, 'Error requesting piece', index, err);
+        }
       });
     }
   };
