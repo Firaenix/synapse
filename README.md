@@ -8,6 +8,10 @@
 
 ### To Do:
 
+- [ ] Retry logic
+
+- [ ] Multiple Peer handling
+
 - [ ] WebRTC
 
 - [ ] TCP
@@ -18,7 +22,7 @@
 
 - [ ] Node JS Server
 
-- [ ] New Metainfo Spec
+- [x] New Metainfo Spec
 
 - [ ] Bittorrent Tracker and DHT compatibility
 

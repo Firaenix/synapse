@@ -13,11 +13,13 @@ import { HashService } from './services/HashService';
 import { chunkBuffer } from './utils/chunkBuffer';
 import Bitfield from 'bitfield';
 import { Client } from './Client';
-import { TorrentInstance } from './services/TorrentInstance';
-import { Peer } from './Peer';
+import { Peer } from './services/Peer';
 import recursiveReadDir from './utils/recursiveReadDir';
 import { MetainfoFile } from './models/MetainfoFile';
 import { DownloadedFile } from './models/DiskFile';
+import { TorrentManager } from './services/TorrentManager';
+import DHT from 'bittorrent-dht';
+import ed from 'bittorrent-dht-sodium';
 
 export const hasher = new HashService();
 
@@ -40,49 +42,51 @@ export const hasher = new HashService();
     };
   });
 
-  const metainfoFile = createMetaInfo(files, 'downloaded_torrents', SupportedHashAlgorithms.blake3);
+  const metainfoFile = createMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3);
 
-  const seedWire = new Wire('seeder');
-  const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
-  for (let i = 0; i <= metainfoFile.info.pieces.length; i++) {
-    seedBitfield.set(i, true);
-  }
+  new TorrentManager(hasher, metainfoFile, files);
 
-  // seedWire.use((w) => new BitcoinExtension(w));
-  const leechWire = new Wire('leech');
+  // const seedWire = new Wire('seeder');
+  // const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
+  // for (let i = 0; i <= metainfoFile.info.pieces.length; i++) {
+  //   seedBitfield.set(i, true);
+  // }
 
-  const seedPeer = new SimplePeer({ wrtc, initiator: true });
-  seedPeer.pipe(seedWire).pipe(seedPeer);
+  // // seedWire.use((w) => new BitcoinExtension(w));
+  // const leechWire = new Wire('leech');
 
-  const leechPeer = new SimplePeer({ wrtc });
-  leechPeer.pipe(leechWire).pipe(leechPeer);
+  // const seedPeer = new SimplePeer({ wrtc, initiator: true });
+  // seedPeer.pipe(seedWire).pipe(seedPeer);
 
-  // const seedTorrent = new TorrentInstance(metainfoFile, seedWire, files, hasher);
-  // const leechTorrent = new TorrentInstance(metainfoFile, leechWire, undefined, hasher);
+  // const leechPeer = new SimplePeer({ wrtc });
+  // leechPeer.pipe(leechWire).pipe(leechPeer);
 
-  seedPeer.on('signal', (data) => {
-    // console.log('seedPeer', data);
-    leechPeer.signal(data);
-  });
+  // // const seedTorrent = new TorrentInstance(metainfoFile, seedWire, files, hasher);
+  // // const leechTorrent = new TorrentInstance(metainfoFile, leechWire, undefined, hasher);
 
-  leechPeer.on('signal', (data) => {
-    // console.log('leechPeer', data);
-    seedPeer.signal(data);
-  });
+  // seedPeer.on('signal', (data) => {
+  //   // console.log('seedPeer', data);
+  //   leechPeer.signal(data);
+  // });
 
-  // seedTorrent.addPeer();
-  // leechTorrent.addPeer();
+  // leechPeer.on('signal', (data) => {
+  //   // console.log('leechPeer', data);
+  //   seedPeer.signal(data);
+  // });
 
-  new Peer(seedWire, metainfoFile, hasher, files);
-  const leecherData = await new Promise<Array<DownloadedFile>>((res, reject) => new Peer(leechWire, metainfoFile, hasher, undefined, res, reject));
+  // // seedTorrent.addPeer();
+  // // leechTorrent.addPeer();
 
-  for (const file of leecherData) {
-    const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
-    console.log('Saving to ', filePath);
-    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-    // Create folders if necessary
-    await fsPromises.writeFile(filePath, file.file);
-  }
+  // new Peer(seedWire, metainfoFile, hasher, files);
+  // const leecherData = await new Promise<Array<DownloadedFile>>((res, reject) => new Peer(leechWire, metainfoFile, hasher, undefined, res, reject));
 
-  console.log('Leecher data', leecherData);
+  // for (const file of leecherData) {
+  //   const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
+  //   console.log('Saving to ', filePath);
+  //   await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+  //   // Create folders if necessary
+  //   await fsPromises.writeFile(filePath, file.file);
+  // }
+
+  // console.log('Leecher data', leecherData);
 })();

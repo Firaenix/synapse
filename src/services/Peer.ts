@@ -1,46 +1,34 @@
 import { Wire } from '@firaenix/bittorrent-protocol';
 import { promises as fsPromises } from 'fs';
 import Bitfield from 'bitfield';
-import { MetainfoFile } from './models/MetainfoFile';
-import { hasher } from './index';
-import { HashService } from './services/HashService';
-import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+import { MetainfoFile } from '../models/MetainfoFile';
+import { hasher } from '../index';
+import { HashService } from './HashService';
+import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { v4 as uuid } from 'uuid';
-import { DiskFile, DownloadedFile } from './models/DiskFile';
-import { chunkBuffer } from './utils/chunkBuffer';
+import { DiskFile, DownloadedFile } from '../models/DiskFile';
+import { chunkBuffer } from '../utils/chunkBuffer';
 import path from 'path';
 
 export class Peer {
   private downloadedPieces: Array<Buffer> = [];
-  private infoHash: string;
   private peerId: string;
-  private bitfield: Bitfield;
-  private fileBufferChunks: Buffer[] | undefined;
 
   constructor(
-    private wire: Wire,
-    private metainfo: MetainfoFile,
-    private hashService: HashService,
-    files: DiskFile[] | undefined,
-    private onFinishedCallback?: (data: Array<DownloadedFile>) => void,
-    private onErrorCallback?: (e: Error) => void
+    private readonly wire: Wire,
+    private readonly metainfo: MetainfoFile,
+    private readonly infoHash: string,
+    private readonly bitfield: Bitfield,
+    private readonly fileBufferChunks: Buffer[] | undefined,
+    private readonly hashService: HashService,
+    private readonly onFinishedCallback?: (data: Array<DownloadedFile>) => void,
+    private readonly onErrorCallback?: (e: Error) => void
   ) {
     this.wire.on('error', console.error);
 
     console.log('Characters in infoHash', Buffer.from(metainfo.infohash).toString('hex'));
 
-    this.infoHash = Buffer.from(metainfo.infohash).toString('hex');
     this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1)).toString('hex');
-    this.bitfield = new Bitfield(metainfo.info.pieces.length);
-
-    if (files) {
-      this.fileBufferChunks = files.map((x) => chunkBuffer(x.file, metainfo.info['piece length'])).flat();
-
-      // Mark that we have all the bits
-      for (let i = 0; i <= this.fileBufferChunks.length; i++) {
-        this.bitfield.set(i, true);
-      }
-    }
 
     // 5. Recieve the actual data pieces
     this.wire.on('piece', this.onPiece);
