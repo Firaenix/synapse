@@ -1,4 +1,11 @@
 export interface DiskFile {
   file: Buffer;
-  filePath: Buffer;
+  path: Buffer;
 }
+
+export interface MetaFileInfo {
+  length: number;
+  path: Buffer;
+}
+
+export type DownloadedFile = MetaFileInfo & DiskFile;

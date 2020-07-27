@@ -4,7 +4,7 @@ import { Wire, Extension, HandshakeExtensions, ExtendedHandshake } from '@firaen
 import SimplePeer from 'simple-peer';
 import wrtc from 'wrtc';
 import './typings';
-import fs from 'fs';
+import fs, { promises as fsPromises } from 'fs';
 import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import path from 'path';
@@ -16,6 +16,8 @@ import { Client } from './Client';
 import { TorrentInstance } from './services/TorrentInstance';
 import { Peer } from './Peer';
 import recursiveReadDir from './utils/recursiveReadDir';
+import { MetainfoFile } from './models/MetainfoFile';
+import { DownloadedFile } from './models/DiskFile';
 
 export const hasher = new HashService();
 
@@ -24,16 +26,17 @@ export const hasher = new HashService();
 
   const paths = await recursiveReadDir(readPath);
 
-  const files = paths.map((p) => {
+  const files = paths.sort().map((p) => {
     console.log(readPath, p);
     const filePath = path.relative('.', p);
+
     console.log(filePath);
     const fileBuf = fs.readFileSync(filePath);
     // fs.writeFileSync('./file-straight-write.epub', fileBuf);
 
     return {
       file: fileBuf,
-      filePath: Buffer.from(filePath)
+      path: Buffer.from(filePath)
     };
   });
 
@@ -71,5 +74,15 @@ export const hasher = new HashService();
   // leechTorrent.addPeer();
 
   new Peer(seedWire, metainfoFile, hasher, files);
-  new Peer(leechWire, metainfoFile, hasher, undefined);
+  const leecherData = await new Promise<Array<DownloadedFile>>((res, reject) => new Peer(leechWire, metainfoFile, hasher, undefined, res, reject));
+
+  for (const file of leecherData) {
+    const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
+    console.log('Saving to ', filePath);
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    // Create folders if necessary
+    await fsPromises.writeFile(filePath, file.file);
+  }
+
+  console.log('Leecher data', leecherData);
 })();

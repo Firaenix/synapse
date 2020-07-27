@@ -6,7 +6,7 @@
     "declaration": true,
     "declarationDir": "./lib",
 
-    "sourceMap": false,
+    "sourceMap": true,
     "target": "es5",
     "moduleResolution": "node",
     "module": "commonjs",

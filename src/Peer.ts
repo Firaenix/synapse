@@ -6,7 +6,7 @@ import { hasher } from './index';
 import { HashService } from './services/HashService';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { v4 as uuid } from 'uuid';
-import { DiskFile } from './models/DiskFile';
+import { DiskFile, DownloadedFile } from './models/DiskFile';
 import { chunkBuffer } from './utils/chunkBuffer';
 import path from 'path';
 
@@ -17,7 +17,14 @@ export class Peer {
   private bitfield: Bitfield;
   private fileBufferChunks: Buffer[] | undefined;
 
-  constructor(private wire: Wire, private metainfo: MetainfoFile, private hashService: HashService, files: DiskFile[] | undefined) {
+  constructor(
+    private wire: Wire,
+    private metainfo: MetainfoFile,
+    private hashService: HashService,
+    files: DiskFile[] | undefined,
+    private onFinishedCallback?: (data: Array<DownloadedFile>) => void,
+    private onErrorCallback?: (e: Error) => void
+  ) {
     this.wire.on('error', console.error);
 
     console.log('Characters in infoHash', Buffer.from(metainfo.infohash).toString('hex'));
@@ -70,6 +77,7 @@ export class Peer {
     console.log(this.wire.wireName, 'finished downloading, uninterested');
 
     const fullFiles = Buffer.concat(this.downloadedPieces);
+    const downloadedFiles: Array<DownloadedFile> = [];
 
     let nextOffset = 0;
     // Split fullFiles into separate buffers based on the length of each file
@@ -82,20 +90,28 @@ export class Peer {
       console.log(this.wire.wireName, 'Split file:', fileBytes.length);
 
       if (fileBytes.length !== file.length) {
-        throw new Error('Buffer isnt the same length as the file');
+        const err = new Error('Buffer isnt the same length as the file');
+        this.onErrorCallback?.(err);
+        throw err;
       }
 
-      const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
-      console.log('Saving to ', filePath);
-      await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-      // Create folders if necessary
-      await fsPromises.writeFile(filePath, fileBytes);
-      nextOffset = file.length;
+      // const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
+      // console.log('Saving to ', filePath);
+      // await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+      // // Create folders if necessary
+      // await fsPromises.writeFile(filePath, fileBytes);
+      downloadedFiles.push({
+        file: fileBytes,
+        ...file
+      });
+
+      nextOffset = nextOffset + file.length;
     }
 
     // Concatenate buffer together and flush to disk.
     // await fsPromises.writeFile('./file.epub', );
     console.log(this.wire.wireName, 'Wrote file to disk', index);
+    this.onFinishedCallback?.(downloadedFiles);
   };
 
   private onExtended = (...data: unknown[]) => {
@@ -120,6 +136,7 @@ export class Peer {
       this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
         if (err) {
           console.error(this.wire.wireName, 'Error requesting piece again', index, err);
+          this.onErrorCallback?.(err);
         }
       });
       return;
@@ -162,6 +179,7 @@ export class Peer {
       this.wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
         if (err) {
           console.error(this.wire.wireName, 'Error requesting piece', index, err);
+          this.onErrorCallback?.(err);
         }
       });
     }

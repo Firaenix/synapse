@@ -20,7 +20,7 @@ export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hasha
     piecesArray = piecesArray.concat(fileHashPieces);
   }
 
-  const files = diskFiles.map((x) => ({ length: x.file.length, path: x.filePath }));
+  const files = diskFiles.map((x) => ({ length: x.file.length, path: x.path }));
 
   const metaInfo: Metainfo = {
     name: Buffer.from(torrentName),

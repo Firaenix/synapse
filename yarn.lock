@@ -23,10 +23,10 @@
     chalk "^2.0.0"
     js-tokens "^4.0.0"
 
-"@firaenix/bittorrent-protocol@^3.2.25":
-  version "3.2.25"
-  resolved "https://registry.yarnpkg.com/@firaenix/bittorrent-protocol/-/bittorrent-protocol-3.2.25.tgz#e97653ccc77a7283121c4d113ce850fcb964c2e7"
-  integrity sha512-uujIx00ucYXJVWKCUXqE5UOn4QoLXAVUMRv+IgX4XTbWBDhPz/VXxzobrQY9dULx+OreYAQTGe6c6ZmapV1egQ==
+"@firaenix/bittorrent-protocol@^3.2.26":
+  version "3.2.26"
+  resolved "https://registry.yarnpkg.com/@firaenix/bittorrent-protocol/-/bittorrent-protocol-3.2.26.tgz#b11b3984a834bfc0333b3e2f43724f5c3c256dc1"
+  integrity sha512-6oYCviuvAa4to011MI8a/BXx5XNymmOt5/e52XGU7BatJTaOBQCn+Vbrn5Dm9Ze6OqthqizU3TqRN0BPv8NK+A==
   dependencies:
     "@types/bencode" "^2.0.0"
     "@types/debug" "^4.1.5"
@@ -79,7 +79,7 @@
   resolved "https://registry.yarnpkg.com/@types/node/-/node-14.0.23.tgz#676fa0883450ed9da0bb24156213636290892806"
   integrity sha512-Z4U8yDAl5TFkmYsZdFPdjeMa57NOvnaf1tljHzhouaPEp7LCj2JKkejpI1ODviIAQuW4CcQmxkQ77rnLsOOoKw==
 
-"@types/readable-stream@^2.3.6":
+"@types/readable-stream@^2.3.6", "@types/readable-stream@^2.3.9":
   version "2.3.9"
   resolved "https://registry.yarnpkg.com/@types/readable-stream/-/readable-stream-2.3.9.tgz#40a8349e6ace3afd2dd1b6d8e9b02945de4566a9"
   integrity sha512-sqsgQqFT7HmQz/V5jH1O0fvQQnXAJO46Gg9LRO/JPfjmVmGUlcx831TZZO3Y3HtWhIkzf3kTsNT0Z0kzIhIvZw==
@@ -100,6 +100,11 @@
   integrity sha512-0V8cKowBdsiA9nbxAg7531sF2cdPZNiUogcfIUeUGm+bejUBE/bvibz3rH36iQP9bQjO/sOzFwU97/uC5mCyoA==
   dependencies:
     "@types/node" "*"
+
+"@types/uuid@^8.0.0":
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/@types/uuid/-/uuid-8.0.0.tgz#165aae4819ad2174a17476dbe66feebd549556c0"
+  integrity sha512-xSQfNcvOiE5f9dyd4Kzxbof1aTrLobL278pGLKOZI6esGfZ7ts9Ka16CzIN6Y8hFHE1C7jIBZokULhK1bOgjRw==
 
 "@typescript-eslint/eslint-plugin@^2.29.0":
   version "2.34.0"
@@ -2614,6 +2619,11 @@ util@~0.10.1:
   integrity sha512-0Pm9hTQ3se5ll1XihRic3FDIku70C+iHUdT/W926rSgHV5QgXsYbKZN8MSC3tJtSkhuROzvsQjAaFENRXr+19A==
   dependencies:
     inherits "2.0.3"
+
+uuid@^8.2.0:
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.2.0.tgz#cb10dd6b118e2dada7d0cd9730ba7417c93d920e"
+  integrity sha512-CYpGiFTUrmI6OBMkAdjSDM0k5h8SkkiTP4WAjQgDgNB1S3Ou9VBEvr6q0Kv2H1mMk7IWfxYGpMH5sd5AvcIV2Q==
 
 v8-compile-cache@^2.0.3:
   version "2.1.1"
