@@ -17,7 +17,7 @@ export class Peer {
   constructor(
     private readonly wire: Wire,
     private readonly metainfo: MetainfoFile,
-    private readonly infoHash: string,
+    private readonly infoHash: Buffer,
     private readonly bitfield: Bitfield,
     private readonly fileBufferChunks: Buffer[] | undefined,
     private readonly hashService: HashService,

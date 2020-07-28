@@ -44,6 +44,8 @@ export const hasher = new HashService();
 
   const metainfoFile = createMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3);
 
+  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
+
   new TorrentManager(hasher, metainfoFile, files);
 
   // const seedWire = new Wire('seeder');

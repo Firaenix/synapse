@@ -1,12 +1,13 @@
 import { IPeerStrategy } from './interfaces/IPeerStrategy';
-import hyperswarmWeb from 'hyperswarm-web';
+import { Peer } from './Peer';
+import hyperswarm from 'hyperswarm';
 import Wire from '@firaenix/bittorrent-protocol';
 
-export class WebRTCPeerStrategy implements IPeerStrategy {
+export class ClassicNetworkPeerStrategy implements IPeerStrategy {
   private readonly swarm: any;
 
   constructor() {
-    this.swarm = hyperswarmWeb();
+    this.swarm = hyperswarm();
   }
 
   public startDiscovery = (infoHash: Buffer, onPeerFoundCallback: (connectedWire: Wire) => void) => {
@@ -24,4 +25,5 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
       onPeerFoundCallback(wire);
     });
   };
+}
 }
