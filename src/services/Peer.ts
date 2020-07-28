@@ -1,18 +1,12 @@
 import { Wire } from '@firaenix/bittorrent-protocol';
-import { promises as fsPromises } from 'fs';
 import Bitfield from 'bitfield';
 import { MetainfoFile } from '../models/MetainfoFile';
 import { hasher } from '../index';
-import { HashService } from './HashService';
-import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
-import { v4 as uuid } from 'uuid';
-import { DiskFile, DownloadedFile } from '../models/DiskFile';
-import { chunkBuffer } from '../utils/chunkBuffer';
-import path from 'path';
+import { IHashService } from './HashService';
+import { DownloadedFile } from '../models/DiskFile';
 
 export class Peer {
   private downloadedPieces: Array<Buffer> = [];
-  private peerId: string;
 
   constructor(
     private readonly wire: Wire,
@@ -20,15 +14,14 @@ export class Peer {
     private readonly infoHash: Buffer,
     private readonly bitfield: Bitfield,
     private readonly fileBufferChunks: Buffer[] | undefined,
-    private readonly hashService: HashService,
+    private readonly peerId: Buffer,
+    private readonly hashService: IHashService,
     private readonly onFinishedCallback?: (data: Array<DownloadedFile>) => void,
     private readonly onErrorCallback?: (e: Error) => void
   ) {
     this.wire.on('error', console.error);
 
     console.log('Characters in infoHash', Buffer.from(metainfo.infohash).toString('hex'));
-
-    this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1)).toString('hex');
 
     // 5. Recieve the actual data pieces
     this.wire.on('piece', this.onPiece);

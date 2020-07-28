@@ -41,7 +41,9 @@
     "node-wrtc": "^0.0.1",
     "prettier": "^2.0.5",
     "readable-stream": "^3.6.0",
+    "reflect-metadata": "^0.1.13",
     "roarr": "^2.15.3",
+    "tsyringe": "^4.3.0",
     "typescript": "^3.9.5",
     "uuid": "^8.2.0",
     "wrtc": "^0.4.6"

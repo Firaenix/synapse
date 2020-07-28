@@ -1,25 +1,13 @@
-import * as net from 'net';
+import 'reflect-metadata';
 import bencode from 'bencode';
-import { Wire, Extension, HandshakeExtensions, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
-import SimplePeer from 'simple-peer';
-import wrtc from 'wrtc';
 import './typings';
-import fs, { promises as fsPromises } from 'fs';
+import fs from 'fs';
 import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import path from 'path';
-import util from 'util';
 import { HashService } from './services/HashService';
-import { chunkBuffer } from './utils/chunkBuffer';
-import Bitfield from 'bitfield';
 import { Client } from './Client';
-import { Peer } from './services/Peer';
 import recursiveReadDir from './utils/recursiveReadDir';
-import { MetainfoFile } from './models/MetainfoFile';
-import { DownloadedFile } from './models/DiskFile';
-import { TorrentManager } from './services/TorrentManager';
-import DHT from 'bittorrent-dht';
-import ed from 'bittorrent-dht-sodium';
 
 export const hasher = new HashService();
 
@@ -46,7 +34,11 @@ export const hasher = new HashService();
 
   fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
 
-  new TorrentManager(hasher, metainfoFile, undefined);
+  // new TorrentManager(hasher, metainfoFile, files);
+
+  const instance = new Client();
+  instance.addTorrent(metainfoFile, files);
+  instance.addTorrent(metainfoFile, undefined);
 
   // const seedWire = new Wire('seeder');
   // const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);

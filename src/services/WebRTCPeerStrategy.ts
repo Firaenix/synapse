@@ -22,8 +22,6 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
         wrtc: isServer() ? require('wrtc') : undefined
       }
     });
-
-    console.log(this.swarm);
   }
 
   public startDiscovery = (infoHash: Buffer, onPeerFoundCallback: (connectedWire: Wire) => void) => {
@@ -33,7 +31,6 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
     });
 
     this.swarm.on('connection', (socket: Duplex, details: unknown) => {
-      console.log('Connection details', details);
       const wire = new Wire('seed');
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)

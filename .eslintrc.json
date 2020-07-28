@@ -6,7 +6,8 @@
     "no-empty-function": "off",
     "@typescript-eslint/no-empty-function": ["off"],
     "@typescript-eslint/interface-name-prefix": ["off"],
-    "no-empty": "off"
+    "no-empty": "off",
+    "no-unused-vars": "warn"
   },
   "root": true,
   "parser": "@typescript-eslint/parser",

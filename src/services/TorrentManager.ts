@@ -1,15 +1,17 @@
-import { PeerManager } from './PeerDiscovery';
+import { PeerManager } from './PeerManager';
 import { MetainfoFile } from '../models/MetainfoFile';
-import { HashService } from './HashService';
-import { Peer } from './Peer';
+import { IHashService } from './HashService';
 import { DiskFile } from '../models/DiskFile';
 import Bitfield from 'bitfield';
 import { chunkBuffer } from '../utils/chunkBuffer';
 import { WebRTCPeerStrategy } from './WebRTCPeerStrategy';
 import { ClassicNetworkPeerStrategy } from './ClassicNetworkPeerStrategy';
+import { injectable, scoped, Lifecycle } from 'tsyringe';
+
+@injectable()
+@scoped(Lifecycle.ResolutionScoped)
 export class TorrentManager {
   private readonly peerManager: PeerManager;
-  private readonly peers: Array<Peer> = [];
   private readonly fileBufferChunks: Buffer[] | undefined;
   private infoHash: Buffer;
   private bitfield: Bitfield;
@@ -21,7 +23,7 @@ export class TorrentManager {
    * @param metainfoFile
    * @param files
    */
-  constructor(private hashService: HashService, private metainfoFile: MetainfoFile, public files: DiskFile[] | undefined) {
+  constructor(private hashService: IHashService, private metainfoFile: MetainfoFile, public files: DiskFile[] | undefined) {
     this.infoHash = metainfoFile.infohash;
     this.bitfield = new Bitfield(metainfoFile.info.pieces.length);
 
@@ -53,8 +55,4 @@ export class TorrentManager {
   };
 
   private onPieceValidated = () => {};
-
-  public addPeer = (peer: Peer) => {
-    this.peers.push(peer);
-  };
 }

@@ -1,8 +1,9 @@
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import * as blake3 from 'blake3';
 import crypto from 'crypto';
+import { singleton } from 'tsyringe';
 
-interface IHashService {
+export interface IHashService {
   hash: (buf: Buffer, algorithm: SupportedHashAlgorithms) => Buffer;
 }
 type Strats = { [algo: string]: (buf: Buffer) => Buffer };
@@ -16,6 +17,7 @@ const CryptoHash = (algo: string) => (buf: Buffer): Buffer => {
   return hash.update(buf).digest();
 };
 
+@singleton()
 export class HashService implements IHashService {
   private strategies: Strats = {
     [SupportedHashAlgorithms.blake3]: Blake3Hash,
