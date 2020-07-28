@@ -46,7 +46,7 @@ export const hasher = new HashService();
 
   fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
 
-  new TorrentManager(hasher, metainfoFile, files);
+  new TorrentManager(hasher, metainfoFile, undefined);
 
   // const seedWire = new Wire('seeder');
   // const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);

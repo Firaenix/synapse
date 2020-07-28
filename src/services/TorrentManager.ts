@@ -6,6 +6,7 @@ import { DiskFile } from '../models/DiskFile';
 import Bitfield from 'bitfield';
 import { chunkBuffer } from '../utils/chunkBuffer';
 import { WebRTCPeerStrategy } from './WebRTCPeerStrategy';
+import { ClassicNetworkPeerStrategy } from './ClassicNetworkPeerStrategy';
 export class TorrentManager {
   private readonly peerManager: PeerManager;
   private readonly peers: Array<Peer> = [];
@@ -36,7 +37,15 @@ export class TorrentManager {
     console.log(this.bitfield.buffer);
     console.log(this.infoHash.toString('hex'));
 
-    this.peerManager = new PeerManager(this.hashService, [new WebRTCPeerStrategy()], this.metainfoFile, this.infoHash, this.bitfield, this.fileBufferChunks, this.onPeerFound);
+    this.peerManager = new PeerManager(
+      this.hashService,
+      [new ClassicNetworkPeerStrategy(), new WebRTCPeerStrategy()],
+      this.metainfoFile,
+      this.infoHash,
+      this.bitfield,
+      this.fileBufferChunks,
+      this.onPeerFound
+    );
   }
 
   private onPeerFound = () => {
