@@ -55,7 +55,7 @@ export class PeerManager {
   private onWireConnected = (strategyName: string, connectedWire: Wire) => {
     console.log('Connecting to wire from', strategyName);
 
-    const peer = new Peer(connectedWire, this.metainfoService.metainfo, this.metainfoService.infohash, this.pieceManager, this.peerId, (index, offset, piece) => {
+    const peer = new Peer(connectedWire, this.hashService, this.metainfoService.metainfo, this.metainfoService.infohash, this.pieceManager, this.peerId, (index, offset, piece) => {
       console.log('YES WE GOT A PIECE', index);
       this.onPieceValidated?.(index, offset, piece);
     });

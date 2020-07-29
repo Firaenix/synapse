@@ -1,15 +1,13 @@
 import { Wire, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { MetainfoFile } from '../models/MetainfoFile';
-import { hasher } from '../index';
-import { IHashService } from './HashService';
-import { DownloadedFile } from '../models/DiskFile';
 import { PieceManager } from './PieceManager';
-import { ExtensionsMap } from '@firaenix/bittorrent-protocol/lib/Wire';
+import { IHashService } from './HashService';
 
 export class Peer {
   constructor(
     public readonly wire: Wire,
+    private readonly hashService: IHashService,
     private readonly metainfo: MetainfoFile,
     private readonly infoHash: Buffer,
     private readonly pieceManager: PieceManager,
@@ -62,7 +60,7 @@ export class Peer {
     const hash = this.metainfo.info.pieces[index];
     console.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
 
-    const pieceHash = hasher.hash(pieceBuf, algo);
+    const pieceHash = this.hashService.hash(pieceBuf, algo);
     console.log(this.wire.wireName, 'Does piece match hash?', pieceHash.equals(hash));
 
     // Checksum failed - re-request piece
