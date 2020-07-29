@@ -1,22 +1,20 @@
-import { Wire } from '@firaenix/bittorrent-protocol';
+import { Wire, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { MetainfoFile } from '../models/MetainfoFile';
 import { hasher } from '../index';
 import { IHashService } from './HashService';
 import { DownloadedFile } from '../models/DiskFile';
+import { PieceManager } from './PieceManager';
+import { ExtensionsMap } from '@firaenix/bittorrent-protocol/lib/Wire';
 
 export class Peer {
-  private downloadedPieces: Array<Buffer> = [];
-
   constructor(
-    private readonly wire: Wire,
+    public readonly wire: Wire,
     private readonly metainfo: MetainfoFile,
     private readonly infoHash: Buffer,
-    private readonly bitfield: Bitfield,
-    private readonly fileBufferChunks: Buffer[] | undefined,
-    private readonly peerId: Buffer,
-    private readonly hashService: IHashService,
-    private readonly onFinishedCallback?: (data: Array<DownloadedFile>) => void,
+    private readonly pieceManager: PieceManager,
+    private readonly myPeerId: Buffer,
+    private readonly onPieceValidated?: (index: number, offset: number, piece: Buffer) => void,
     private readonly onErrorCallback?: (e: Error) => void
   ) {
     this.wire.on('error', console.error);
@@ -38,68 +36,23 @@ export class Peer {
 
     try {
       // 1. Send Handshake
-      this.wire.handshake(this.infoHash, this.peerId);
+      this.wire.handshake(this.infoHash, this.myPeerId);
     } catch (error) {
       console.error(error);
     }
   }
 
-  private finishedWithPiece = async (index: number, pieceBuffer: Buffer) => {
-    console.log(this.wire.wireName, 'Finished with piece', index);
-    this.downloadedPieces.splice(index, 0, pieceBuffer);
+  private onExtended = (_: string, extensions: ExtendedHandshake) => {
+    console.log(this.wire.wireName, 'Incoming handshake from ', extensions, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
 
-    // Still need more pieces
-    if (this.downloadedPieces.length < this.metainfo.info.pieces.length) {
+    if (this.myPeerId.toString('hex') === this.wire.peerId) {
+      console.warn('Dont want to connect to myself, thats weird.');
+      this.wire.end();
       return;
     }
 
-    // We are done! Say we arent interested anymore
-    this.wire.uninterested();
-    console.log(this.wire.wireName, 'finished downloading, uninterested');
-
-    const fullFiles = Buffer.concat(this.downloadedPieces);
-    const downloadedFiles: Array<DownloadedFile> = [];
-
-    let nextOffset = 0;
-    // Split fullFiles into separate buffers based on the length of each file
-    for (const file of this.metainfo.info.files) {
-      console.log(this.wire.wireName, 'Splitting file', file.path.toString(), file.length);
-
-      console.log(this.wire.wireName, 'Reading from offset', nextOffset, 'to', file.length);
-
-      const fileBytes = fullFiles.subarray(nextOffset, file.length + nextOffset);
-      console.log(this.wire.wireName, 'Split file:', fileBytes.length);
-
-      if (fileBytes.length !== file.length) {
-        const err = new Error('Buffer isnt the same length as the file');
-        this.onErrorCallback?.(err);
-        throw err;
-      }
-
-      // const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
-      // console.log('Saving to ', filePath);
-      // await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-      // // Create folders if necessary
-      // await fsPromises.writeFile(filePath, fileBytes);
-      downloadedFiles.push({
-        file: fileBytes,
-        ...file
-      });
-
-      nextOffset = nextOffset + file.length;
-    }
-
-    // Concatenate buffer together and flush to disk.
-    // await fsPromises.writeFile('./file.epub', );
-    console.log(this.wire.wireName, 'Wrote file to disk', index);
-    this.onFinishedCallback?.(downloadedFiles);
-  };
-
-  private onExtended = (...data: unknown[]) => {
-    console.log(this.wire.wireName, 'Incoming handshake from ', data);
-
     this.wire.unchoke();
-    this.wire.bitfield(this.bitfield);
+    this.wire.bitfield(this.pieceManager.getBitfield());
   };
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
@@ -125,8 +78,8 @@ export class Peer {
 
     // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
     this.wire.have(index);
-    console.log(this.wire.wireName, 'Broadcasted that we have piece', index);
-    await this.finishedWithPiece(index, pieceBuf);
+    console.log(this.wire.wireName, 'Broadcasted that we have piece', index, 'this.onPieceValidated function exists?', !!this.onPieceValidated);
+    this.onPieceValidated?.(index, offset, pieceBuf);
   };
 
   private onBitfield = (recievedBitfield: Bitfield) => {
@@ -145,7 +98,7 @@ export class Peer {
     for (let index = 0; index < pieces.length; index++) {
       // Do they have a piece?
       const peerHasPiece = this.wire.peerPieces.get(index);
-      const iHavePiece = this.bitfield.get(index);
+      const iHavePiece = this.pieceManager.hasPiece(index);
 
       // Not interested if I have piece
       if (iHavePiece) {
@@ -169,12 +122,12 @@ export class Peer {
   private onRequest = (index: number, offset: number, length: number) => {
     console.log(this.wire.wireName, 'Incoming request ', index, offset, length);
 
-    if (!this.fileBufferChunks) {
+    if (!this.pieceManager.hasPiece(index)) {
       console.log(this.wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
       this.wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
       return;
     }
 
-    this.wire.piece(index, offset, this.fileBufferChunks[index]);
+    this.wire.piece(index, offset, this.pieceManager.getPiece(index));
   };
 }

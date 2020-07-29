@@ -38,7 +38,13 @@ export const hasher = new HashService();
 
   const instance = new Client();
   instance.addTorrent(metainfoFile, files);
-  instance.addTorrent(metainfoFile, undefined);
+
+  // let downloadedCount = 0;
+  instance.addTorrent(metainfoFile, undefined, (downloads) => {
+    // downloadedCount++;
+    // console.log('Downloaded!', downloads);
+    // console.log('Downloaded count', downloadedCount);
+  });
 
   // const seedWire = new Wire('seeder');
   // const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
