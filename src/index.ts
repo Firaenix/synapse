@@ -1,49 +1,50 @@
 import 'reflect-metadata';
 import bencode from 'bencode';
 import './typings';
-import fs from 'fs';
-import { createMetaInfo } from './utils/createMetaInfo';
-import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
-import path from 'path';
-import { HashService } from './services/HashService';
+import fs, { promises as fsPromises } from 'fs';
 import { Client } from './Client';
-import recursiveReadDir from './utils/recursiveReadDir';
-
-export const hasher = new HashService();
+import path from 'path';
 
 (async () => {
-  const readPath = path.join(__dirname, '..', 'torrents');
+  // const readPath = path.join(__dirname, '..', 'torrents');
 
-  const paths = await recursiveReadDir(readPath);
+  // const paths = await recursiveReadDir(readPath);
 
-  const files = paths.sort().map((p) => {
-    console.log(readPath, p);
-    const filePath = path.relative('.', p);
+  // const files = paths.sort().map((p) => {
+  //   console.log(readPath, p);
+  //   const filePath = path.relative('.', p);
 
-    console.log(filePath);
-    const fileBuf = fs.readFileSync(filePath);
-    // fs.writeFileSync('./file-straight-write.epub', fileBuf);
+  //   console.log(filePath);
+  //   const fileBuf = fs.readFileSync(filePath);
+  //   // fs.writeFileSync('./file-straight-write.epub', fileBuf);
 
-    return {
-      file: fileBuf,
-      path: Buffer.from(filePath)
-    };
-  });
+  //   return {
+  //     file: fileBuf,
+  //     path: Buffer.from(filePath)
+  //   };
+  // });
 
-  const metainfoFile = createMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3);
+  // const metainfoFile = createMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3);
 
-  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
+  const metainfoFile = bencode.decode(fs.readFileSync('./mymetainfo.ben'));
 
   // new TorrentManager(hasher, metainfoFile, files);
 
   const instance = new Client();
-  instance.addTorrent(metainfoFile, files);
 
   let downloadedCount = 0;
-  instance.addTorrent(metainfoFile, undefined, (downloads) => {
+  instance.addTorrent(metainfoFile, undefined, async (downloads) => {
     downloadedCount++;
     console.log('Downloaded!', downloads);
     console.log('Downloaded count', downloadedCount);
+
+    for (const file of downloads) {
+      const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
+      console.log('Saving to ', filePath);
+      await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+      // Create folders if necessary
+      await fsPromises.writeFile(filePath, file.file);
+    }
   });
 
   // const seedWire = new Wire('seeder');
@@ -79,14 +80,4 @@ export const hasher = new HashService();
 
   // new Peer(seedWire, metainfoFile, hasher, files);
   // const leecherData = await new Promise<Array<DownloadedFile>>((res, reject) => new Peer(leechWire, metainfoFile, hasher, undefined, res, reject));
-
-  // for (const file of leecherData) {
-  //   const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
-  //   console.log('Saving to ', filePath);
-  //   await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-  //   // Create folders if necessary
-  //   await fsPromises.writeFile(filePath, file.file);
-  // }
-
-  // console.log('Leecher data', leecherData);
 })();
