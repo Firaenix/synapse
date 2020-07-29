@@ -24,7 +24,7 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
     });
   }
 
-  public startDiscovery = (infoHash: Buffer, onPeerFoundCallback: (connectedWire: Wire) => void) => {
+  public startDiscovery = (infoHash: Buffer, onPeerFoundCallback: (strategyName: string, connectedWire: Wire) => void) => {
     this.swarm.join(infoHash, {
       lookup: true, // find & connect to peers
       announce: true // optional- announce self as a connection target
@@ -35,7 +35,7 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)
       wire.pipe(socket).pipe(wire);
-      onPeerFoundCallback(wire);
+      onPeerFoundCallback('WebRTCPeerStrategy', wire);
     });
   };
 }

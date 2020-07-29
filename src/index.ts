@@ -39,11 +39,11 @@ export const hasher = new HashService();
   const instance = new Client();
   instance.addTorrent(metainfoFile, files);
 
-  // let downloadedCount = 0;
+  let downloadedCount = 0;
   instance.addTorrent(metainfoFile, undefined, (downloads) => {
-    // downloadedCount++;
-    // console.log('Downloaded!', downloads);
-    // console.log('Downloaded count', downloadedCount);
+    downloadedCount++;
+    console.log('Downloaded!', downloads);
+    console.log('Downloaded count', downloadedCount);
   });
 
   // const seedWire = new Wire('seeder');
