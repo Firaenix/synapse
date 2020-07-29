@@ -79,7 +79,6 @@ export class TorrentManager {
   private onPieceValidated = (index: number, offset: number, piece: Buffer) => {
     if (!this.pieceManager.hasPiece(index)) {
       this.pieceManager.setPiece(index, piece);
-      return;
     }
 
     console.log('We have validated the piece', index, offset, piece);
