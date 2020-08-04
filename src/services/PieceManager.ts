@@ -1,6 +1,7 @@
 import Bitfield from 'bitfield';
 import { injectable, inject } from 'tsyringe';
 import { MetaInfoService } from './MetaInfoService';
+import { IHashService } from './HashService';
 
 /**
  * Responsible for managing the Bitfield and Piece Buffers.
@@ -10,14 +11,14 @@ import { MetaInfoService } from './MetaInfoService';
 @injectable()
 export class PieceManager {
   private readonly bitfield: Bitfield;
-  private readonly pieceChunks: Array<Buffer>;
+  private readonly hashChunks: Array<Buffer>;
 
-  constructor(metainfoService: MetaInfoService) {
+  constructor(private readonly metainfoService: MetaInfoService, @inject('IHashService') private readonly hashService: IHashService) {
     this.bitfield = new Bitfield(metainfoService.pieceCount);
-    this.pieceChunks = metainfoService.fileChunks;
+    this.hashChunks = metainfoService.fileChunks;
 
-    for (let i = 0; i <= this.pieceChunks.length; i++) {
-      if (!this.pieceChunks[i]) {
+    for (let i = 0; i <= this.hashChunks.length; i++) {
+      if (!this.hashChunks[i]) {
         continue;
       }
 
@@ -42,17 +43,13 @@ export class PieceManager {
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    const pieceBuffer = this.pieceChunks[index];
+    const pieceBuffer = this.hashChunks[index];
     if (!pieceBuffer) {
       this.setHasPiece(index, false);
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    return this.pieceChunks[index];
-  };
-
-  public getAllPieces = () => {
-    return Buffer.concat(this.pieceChunks);
+    return this.hashChunks[index];
   };
 
   public setPiece = (index: number, pieceBuffer: Buffer) => {
@@ -61,10 +58,10 @@ export class PieceManager {
     }
 
     this.setHasPiece(index, true);
-    this.pieceChunks.splice(index, 0, pieceBuffer);
+    this.hashChunks.splice(index, 0, this.hashService.hash(pieceBuffer, this.metainfoService.metainfo.info['piece hash algo']));
   };
 
   public getPieceCount = () => {
-    return this.pieceChunks.length;
+    return this.hashChunks.length;
   };
 }

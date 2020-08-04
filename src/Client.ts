@@ -10,6 +10,8 @@ import { PieceManager } from './services/PieceManager';
 import { PeerManager } from './services/PeerManager';
 import { chunkBuffer } from './utils/chunkBuffer';
 import { MetaInfoService } from './services/MetaInfoService';
+import { Stream, Duplex } from 'stream';
+import stream from 'stream';
 
 export interface Settings {
   extensions?: Extension[];
@@ -51,7 +53,7 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = [], onDownloadedCallback?: (downloads: Array<DownloadedFile>) => void) => {
+  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = [], readFromStream?: (downloadStream: stream.Readable) => void) => {
     const requestContainer = container.createChildContainer();
 
     requestContainer.register(PieceManager, {
@@ -71,7 +73,7 @@ export class Client {
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
-    torrentManager.startTorrent(onDownloadedCallback);
+    torrentManager.startTorrent(readFromStream);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.torrents.push(torrentManager);
   };

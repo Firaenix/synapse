@@ -42,6 +42,12 @@ export class Peer {
     }
   }
 
+  private keepAliveLoop = () => {
+    setInterval(() => {
+      this.wire.keepAlive();
+    }, 1000 * 30);
+  };
+
   private onExtended = (_: string, extensions: ExtendedHandshake) => {
     console.log(this.wire.wireName, 'Incoming handshake from ', extensions, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
 
@@ -50,6 +56,9 @@ export class Peer {
       this.wire.end();
       return;
     }
+
+    // Make sure we dont disconnect from the peer, keep sending them pings
+    this.keepAliveLoop();
 
     this.wire.unchoke();
     this.wire.bitfield(this.pieceManager.getBitfield());

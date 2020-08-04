@@ -7,10 +7,11 @@ import { chunkBuffer } from '../utils/chunkBuffer';
 import { autoInjectable, injectable, inject } from 'tsyringe';
 import { PieceManager } from './PieceManager';
 import { MetaInfoService } from './MetaInfoService';
+import stream from 'stream';
 
 @injectable()
 export class TorrentManager {
-  private onFinishedDownloading: ((downloadedFiles: Array<DownloadedFile>) => void) | undefined;
+  private downloadStream: stream.Readable;
 
   /**
    * if files is undefined, you are a leech, seeders have all the data
@@ -24,10 +25,16 @@ export class TorrentManager {
     private readonly peerManager: PeerManager,
     private readonly metainfoService: MetaInfoService,
     private readonly pieceManager: PieceManager
-  ) {}
+  ) {
+    this.downloadStream = new stream.Readable({
+      read(size) {
+        return true;
+      }
+    });
+  }
 
-  public startTorrent = (onFinishedDownloading?: (downloadedFiles: Array<DownloadedFile>) => void) => {
-    this.onFinishedDownloading = onFinishedDownloading;
+  public startTorrent = (readFromStream?: (ds: stream.Readable) => void) => {
+    readFromStream?.(this.downloadStream);
     this.peerManager.bootstrapManager(this.onPieceValidated);
   };
 
@@ -43,37 +50,8 @@ export class TorrentManager {
     this.peerManager?.setUninterested();
     console.log('Finished downloading, uninterested in other peers');
 
-    const fullFiles = this.pieceManager.getAllPieces();
-    const downloadedFiles: Array<DownloadedFile> = [];
-
-    let nextOffset = 0;
-    // Split fullFiles into separate buffers based on the length of each file
-    for (const file of this.metainfoService.metainfo.info.files) {
-      console.log('Splitting file', file.path.toString(), file.length);
-
-      console.log('Reading from offset', nextOffset, 'to', file.length);
-
-      const fileBytes = fullFiles.subarray(nextOffset, file.length + nextOffset);
-      console.log('Split file:', fileBytes.length);
-
-      if (fileBytes.length !== file.length) {
-        throw new Error('Buffer isnt the same length as the file');
-      }
-
-      // const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
-      // console.log('Saving to ', filePath);
-      // await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-      // // Create folders if necessary
-      // await fsPromises.writeFile(filePath, fileBytes);
-      downloadedFiles.push({
-        file: fileBytes,
-        ...file
-      });
-
-      nextOffset = nextOffset + file.length;
-    }
-
-    this.onFinishedDownloading?.(downloadedFiles);
+    this.downloadStream.push(null);
+    this.downloadStream.destroy();
   };
 
   private onPieceValidated = (index: number, offset: number, piece: Buffer) => {
@@ -82,6 +60,9 @@ export class TorrentManager {
     }
 
     console.log('We have validated the piece', index, offset, piece);
+    if (!this.downloadStream.destroyed) {
+      this.downloadStream.push(Buffer.concat([Buffer.from(`${index}:${offset}:`), piece]));
+    }
     this.verifyIsFinishedDownloading();
   };
 }

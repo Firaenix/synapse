@@ -16,6 +16,14 @@
 
 ### To Do:
 
+- [ ] Figure out a nice way to handle streaming chunks in order for consumers
+
+- [ ] Reduce memory pressure by having the piece buffer be backed by disk
+
+- [ ] Smart piece management
+
+- [ ] Rarest Piece first?
+
 - [ ] Retry logic
 
 - [ ] Multiple Peer handling
@@ -26,7 +34,7 @@
 
 - [x] UDP
 
-- [ ] Browser compatibility
+- [x] Browser compatibility
 
 - [x] Node JS Server
 
@@ -38,8 +46,11 @@
 
 - [ ] Merkel Tree for file pieces hash
 
+- [ ] Nice API for accessing torrents on the fly Torrent.stream, yield Torrent.nextPiece()
+
 ### With thanks to:
 
 - WebTorrent Creators
 - Bram Cohen
 - Bitping Team
+- Hyperswarm Team
