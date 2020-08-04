@@ -1,17 +1,20 @@
-import { MetainfoFile } from './models/MetainfoFile';
+import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { Extension } from '@firaenix/bittorrent-protocol';
 import { HashService, IHashService } from './services/HashService';
-import { DiskFile, DownloadedFile } from './models/DiskFile';
+import { DiskFile } from './models/DiskFile';
 import { TorrentManager } from './services/TorrentManager';
-import { container, autoInjectable, inject, predicateAwareClassFactory } from 'tsyringe';
+import { container, autoInjectable, inject } from 'tsyringe';
 import { ClassicNetworkPeerStrategy } from './services/ClassicNetworkPeerStrategy';
 import { WebRTCPeerStrategy } from './services/WebRTCPeerStrategy';
 import { PieceManager } from './services/PieceManager';
 import { PeerManager } from './services/PeerManager';
 import { chunkBuffer } from './utils/chunkBuffer';
 import { MetaInfoService } from './services/MetaInfoService';
-import { Stream, Duplex } from 'stream';
 import stream from 'stream';
+import { createMetaInfo } from './utils/createMetaInfo';
+import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+import { ISigningService } from './services/interfaces/ISigningService';
+import { SigningService } from './services/SigningService';
 
 export interface Settings {
   extensions?: Extension[];
@@ -25,6 +28,10 @@ const defaultSettings: Settings = {
 const registerDependencies = () => {
   container.register('IHashService', {
     useClass: HashService
+  });
+
+  container.register('ISigningService', {
+    useClass: SigningService
   });
 
   container.register('IPeerStrategy', {
@@ -46,7 +53,25 @@ registerDependencies();
 export class Client {
   private readonly torrents: Array<TorrentManager> = [];
 
-  constructor(@inject('IHashService') private hashService?: IHashService) {}
+  constructor(@inject('IHashService') private hashService?: IHashService, @inject('ISigningService') private readonly signingService?: ISigningService) {}
+
+  generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms): Promise<MetainfoFile>;
+  generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer): Promise<SignedMetainfoFile>;
+  public async generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer) {
+    const metainfo = createMetaInfo(diskFiles, torrentName, hashalgo);
+
+    if (privateKeyBuffer) {
+      const signature = await this.signingService?.sign(metainfo.infohash, privateKeyBuffer, 'ecdsa');
+
+      return {
+        ...metainfo,
+        infosig: signature,
+        'infosig algo': signature ? 'ecdsa' : undefined
+      } as SignedMetainfoFile;
+    }
+
+    return metainfo;
+  }
 
   /**
    * Adds a torrent to be seeded or leeched. If you add files, you are a seeder, if you pass undefined, you are a leech

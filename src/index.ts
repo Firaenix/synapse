@@ -11,6 +11,7 @@ import recursiveReadDir from './utils/recursiveReadDir';
 import { Duplex } from 'stream';
 import stream from 'stream';
 import { DownloadedFile } from './models/DiskFile';
+import eccrypto from 'eccrypto';
 
 export const hasher = new HashService();
 
@@ -33,13 +34,11 @@ export const hasher = new HashService();
     };
   });
 
-  const metainfoFile = createMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3);
-
-  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
-
   // new TorrentManager(hasher, metainfoFile, files);
 
   const instance = new Client();
+  const metainfoFile = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3, eccrypto.generatePrivate());
+  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
   instance.addTorrent(metainfoFile, files);
 
   const leechInstance = new Client();
