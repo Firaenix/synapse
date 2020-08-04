@@ -8,3 +8,7 @@ export interface SignedMetainfoFile extends MetainfoFile {
   infosig: Buffer;
   ['infosig algo']: 'ecdsa';
 }
+
+export function isSignedMetainfo(x: MetainfoFile | SignedMetainfoFile): x is SignedMetainfoFile {
+  return !!x['infosig'];
+}

@@ -29,17 +29,12 @@ export class PeerManager {
   public bootstrapManager = (onPieceValidated: (index: number, offset: number, piece: Buffer) => void) => {
     this.onPieceValidated = onPieceValidated;
 
-    console.log(
-      'Setting metainfo',
-      this.metainfoService.metainfo,
-      this.metainfoService.infohash,
-      this.peerId,
-      'this.pieceManager.getBitfield().buffer.length',
-      this.pieceManager.getBitfield().buffer.length
-    );
+    const infoIdentifier = this.metainfoService.infosig || this.metainfoService.infohash;
+
+    console.log('Setting metainfo', this.metainfoService.metainfo, infoIdentifier, this.peerId, 'this.pieceManager.getBitfield().buffer.length', this.pieceManager.getBitfield().buffer.length);
 
     for (const strategy of this.peerDiscoveryStrategies) {
-      strategy.startDiscovery(this.metainfoService.infohash, this.onWireConnected);
+      strategy.startDiscovery(this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256), this.onWireConnected);
     }
   };
 
