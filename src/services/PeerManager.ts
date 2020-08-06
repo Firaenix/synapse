@@ -30,11 +30,12 @@ export class PeerManager {
     this.onPieceValidated = onPieceValidated;
 
     const infoIdentifier = this.metainfoService.infosig || this.metainfoService.infohash;
+    const infoHashHash = this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256);
 
     console.log('Setting metainfo', this.metainfoService.metainfo, infoIdentifier, this.peerId, 'this.pieceManager.getBitfield().buffer.length', this.pieceManager.getBitfield().buffer.length);
 
     for (const strategy of this.peerDiscoveryStrategies) {
-      strategy.startDiscovery(this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256), this.onWireConnected);
+      strategy.startDiscovery(infoHashHash, this.onWireConnected);
     }
   };
 

@@ -1,17 +1,17 @@
 import 'reflect-metadata';
-import bencode from 'bencode';
 import './typings';
 import fs, { promises as fsPromises } from 'fs';
-import { createMetaInfo } from './utils/createMetaInfo';
-import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import path from 'path';
 import { HashService } from './services/HashService';
 import { Client } from './Client';
 import recursiveReadDir from './utils/recursiveReadDir';
-import { Duplex } from 'stream';
-import stream from 'stream';
-import { DownloadedFile } from './models/DiskFile';
-import eccrypto from 'eccrypto';
+import elliptic from 'elliptic';
+import { DHTService } from './services/DHTService';
+import HyperDHT from '@hyperswarm/dht';
+import crypto from 'crypto';
+import { SigningService } from './services/SigningService';
+import { ED25519Algorithm } from './services/signaturealgorithms/ED25519Algorithm';
+import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
 
 export const hasher = new HashService();
 
@@ -37,104 +37,81 @@ export const hasher = new HashService();
   // new TorrentManager(hasher, metainfoFile, files);
 
   const instance = new Client();
-  const metainfoFile = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3, eccrypto.generatePrivate());
-  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
-  instance.addTorrent(metainfoFile, files);
+  const { publicKey, secretKey } = await new ED25519SuperCopAlgorithm().generateKeyPair();
 
-  const leechInstance = new Client();
+  const dht = new DHTService();
 
-  leechInstance.addTorrent(metainfoFile, undefined, (readStream) => {
-    const bufs: Array<Buffer> = [];
+  const key = await dht.publish({ publicKey, secretKey }, Buffer.from('JUST SOME SHIT'), 0);
+  const value = await dht.get(key);
 
-    readStream.on('data', (chunk: Buffer) => {
-      const [index, offset] = chunk.toString().split(':');
-      console.log('index, offset', index, offset);
-      bufs.splice(Number(index), 0, chunk.slice(Buffer.from(index).length + Buffer.from(':').length + Buffer.from(offset).length + Buffer.from(':').length));
-    });
+  console.log('KV', key.toString('hex'), value);
 
-    readStream.on('end', async () => {
-      const fullFiles = Buffer.concat(bufs);
-
-      const downloadedFiles: Array<DownloadedFile> = [];
-
-      let nextOffset = 0;
-      // Split fullFiles into separate buffers based on the length of each file
-      for (const file of metainfoFile.info.files) {
-        console.log('Splitting file', file.path.toString(), file.length);
-
-        console.log('Reading from offset', nextOffset, 'to', file.length);
-
-        const fileBytes = fullFiles.subarray(nextOffset, file.length + nextOffset);
-        console.log('Split file:', fileBytes.length);
-
-        if (fileBytes.length !== file.length) {
-          throw new Error('Buffer isnt the same length as the file');
-        }
-
-        // const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
-        // console.log('Saving to ', filePath);
-        // await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-        // // Create folders if necessary
-        // await fsPromises.writeFile(filePath, fileBytes);
-        downloadedFiles.push({
-          file: fileBytes,
-          ...file
-        });
-
-        nextOffset = nextOffset + file.length;
-      }
-
-      for (const file of downloadedFiles) {
-        const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
-        console.log('Saving to ', filePath);
-        await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-        // Create folders if necessary
-        await fsPromises.writeFile(filePath, file.file);
-      }
-    });
+  dht.subscribe(key, 500, (data) => {
+    console.log('NEW DATA!', data);
   });
 
-  // const seedWire = new Wire('seeder');
-  // const seedBitfield = new Bitfield(metainfoFile.info.pieces.length);
-  // for (let i = 0; i <= metainfoFile.info.pieces.length; i++) {
-  //   seedBitfield.set(i, true);
-  // }
+  let nonce = 1;
+  setInterval(async () => {
+    const newKey = await dht.publish({ publicKey, secretKey }, Buffer.concat([Buffer.from([nonce]), Buffer.from('GIMME DAT NEW SHIET')]), nonce);
+    console.log('UPDATED KEY?', newKey.toString('hex'), key.toString('hex'));
+    nonce++;
+  }, 2000);
 
-  // // seedWire.use((w) => new BitcoinExtension(w));
-  // const leechWire = new Wire('leech');
+  // const metainfoFile = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.blake3, tempKeyPair.getSecret('hex'));
+  // fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
+  // instance.addTorrent(metainfoFile, files);
 
-  // const seedPeer = new SimplePeer({ wrtc, initiator: true });
-  // seedPeer.pipe(seedWire).pipe(seedPeer);
+  // const leechInstance = new Client();
 
-  // const leechPeer = new SimplePeer({ wrtc });
-  // leechPeer.pipe(leechWire).pipe(leechPeer);
+  // const torrent = leechInstance.addTorrent(metainfoFile, undefined);
+  // const readStream = torrent.downloadStream;
 
-  // // const seedTorrent = new TorrentInstance(metainfoFile, seedWire, files, hasher);
-  // // const leechTorrent = new TorrentInstance(metainfoFile, leechWire, undefined, hasher);
+  // const bufs: Array<Buffer> = [];
 
-  // seedPeer.on('signal', (data) => {
-  //   // console.log('seedPeer', data);
-  //   leechPeer.signal(data);
+  // readStream.on('data', (chunk: Buffer) => {
+  //   const [index, offset] = chunk.toString().split(':');
+  //   console.log('index, offset', index, offset);
+  //   bufs.splice(Number(index), 0, chunk.slice(Buffer.from(index).length + Buffer.from(':').length + Buffer.from(offset).length + Buffer.from(':').length));
   // });
 
-  // leechPeer.on('signal', (data) => {
-  //   // console.log('leechPeer', data);
-  //   seedPeer.signal(data);
+  // readStream.on('end', async () => {
+  //   const fullFiles = Buffer.concat(bufs);
+
+  //   const downloadedFiles: Array<DownloadedFile> = [];
+
+  //   let nextOffset = 0;
+  //   // Split fullFiles into separate buffers based on the length of each file
+  //   for (const file of metainfoFile.info.files) {
+  //     console.log('Splitting file', file.path.toString(), file.length);
+
+  //     console.log('Reading from offset', nextOffset, 'to', file.length);
+
+  //     const fileBytes = fullFiles.subarray(nextOffset, file.length + nextOffset);
+  //     console.log('Split file:', fileBytes.length);
+
+  //     if (fileBytes.length !== file.length) {
+  //       throw new Error('Buffer isnt the same length as the file');
+  //     }
+
+  //     // const filePath = path.resolve('.', this.metainfo.info.name.toString(), file.path.toString());
+  //     // console.log('Saving to ', filePath);
+  //     // await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+  //     // // Create folders if necessary
+  //     // await fsPromises.writeFile(filePath, fileBytes);
+  //     downloadedFiles.push({
+  //       file: fileBytes,
+  //       ...file
+  //     });
+
+  //     nextOffset = nextOffset + file.length;
+  //   }
+
+  //   for (const file of downloadedFiles) {
+  //     const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
+  //     console.log('Saving to ', filePath);
+  //     await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+  //     // Create folders if necessary
+  //     await fsPromises.writeFile(filePath, file.file);
+  //   }
   // });
-
-  // // seedTorrent.addPeer();
-  // // leechTorrent.addPeer();
-
-  // new Peer(seedWire, metainfoFile, hasher, files);
-  // const leecherData = await new Promise<Array<DownloadedFile>>((res, reject) => new Peer(leechWire, metainfoFile, hasher, undefined, res, reject));
-
-  // for (const file of leecherData) {
-  //   const filePath = path.resolve('.', metainfoFile.info.name.toString(), file.path.toString());
-  //   console.log('Saving to ', filePath);
-  //   await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-  //   // Create folders if necessary
-  //   await fsPromises.writeFile(filePath, file.file);
-  // }
-
-  // console.log('Leecher data', leecherData);
 })();

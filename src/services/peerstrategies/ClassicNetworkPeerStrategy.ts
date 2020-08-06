@@ -1,10 +1,9 @@
-import { IPeerStrategy } from './interfaces/IPeerStrategy';
-import { Peer } from './Peer';
+import { IPeerStrategy } from '../interfaces/IPeerStrategy';
 import hyperswarm from 'hyperswarm';
 import Wire from '@firaenix/bittorrent-protocol';
 
 export class ClassicNetworkPeerStrategy implements IPeerStrategy {
-  private readonly swarm: any;
+  private readonly swarm: hyperswarm;
 
   constructor() {
     this.swarm = hyperswarm();
@@ -14,6 +13,10 @@ export class ClassicNetworkPeerStrategy implements IPeerStrategy {
     this.swarm.join(infoHash, {
       lookup: true, // find & connect to peers
       announce: true // optional- announce self as a connection target
+    });
+
+    this.swarm.on('updated', ({ key }) => {
+      console.log('NEW SHIT AVAILABLE', key);
     });
 
     this.swarm.on('connection', (socket, details) => {

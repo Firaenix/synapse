@@ -4,8 +4,8 @@ import { HashService, IHashService } from './services/HashService';
 import { DiskFile } from './models/DiskFile';
 import { TorrentManager } from './services/TorrentManager';
 import { container, autoInjectable, inject } from 'tsyringe';
-import { ClassicNetworkPeerStrategy } from './services/ClassicNetworkPeerStrategy';
-import { WebRTCPeerStrategy } from './services/WebRTCPeerStrategy';
+import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
+import { WebRTCPeerStrategy } from './services/peerstrategies/WebRTCPeerStrategy';
 import { PieceManager } from './services/PieceManager';
 import { PeerManager } from './services/PeerManager';
 import { chunkBuffer } from './utils/chunkBuffer';
@@ -15,6 +15,8 @@ import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { SigningService } from './services/SigningService';
+import { ED25519Algorithm } from './services/signaturealgorithms/ED25519Algorithm';
+import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 
 export interface Settings {
   extensions?: Extension[];
@@ -32,6 +34,10 @@ const registerDependencies = () => {
 
   container.register('ISigningService', {
     useClass: SigningService
+  });
+
+  container.register('ISigningAlgorithm', {
+    useClass: ED25519Algorithm
   });
 
   container.register('IPeerStrategy', {
@@ -61,12 +67,13 @@ export class Client {
     const metainfo = createMetaInfo(diskFiles, torrentName, hashalgo);
 
     if (privateKeyBuffer) {
-      const signature = await this.signingService?.sign(metainfo.infohash, privateKeyBuffer, 'ecdsa');
+      const signature = await this.signingService?.sign(metainfo.infohash, privateKeyBuffer, SupportedSignatureAlgorithms.ed25519);
 
       return {
         ...metainfo,
         infosig: signature,
-        'infosig algo': signature ? 'ecdsa' : undefined
+        'infosig algo': signature ? SupportedSignatureAlgorithms.ed25519 : undefined,
+        'pub key': Buffer.from('should be pub key')
       } as SignedMetainfoFile;
     }
 
@@ -78,7 +85,7 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = [], readFromStream?: (downloadStream: stream.Readable) => void) => {
+  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
     const requestContainer = container.createChildContainer();
 
     requestContainer.register(PieceManager, {
@@ -98,8 +105,9 @@ export class Client {
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
-    torrentManager.startTorrent(readFromStream);
+    torrentManager.startTorrent();
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.torrents.push(torrentManager);
+    return torrentManager;
   };
 }

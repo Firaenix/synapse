@@ -1,8 +1,8 @@
-import { IPeerStrategy } from './interfaces/IPeerStrategy';
+import { IPeerStrategy } from '../interfaces/IPeerStrategy';
 import hyperswarm from 'hyperswarm-web';
 import Wire from '@firaenix/bittorrent-protocol';
 import { Duplex } from 'stream';
-import { isServer } from '../utils/isServer';
+import { isServer } from '../../utils/isServer';
 
 export class WebRTCPeerStrategy implements IPeerStrategy {
   private readonly swarm: any;
@@ -28,6 +28,10 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
     this.swarm.join(infoHash, {
       lookup: true, // find & connect to peers
       announce: true // optional- announce self as a connection target
+    });
+
+    this.swarm.on('updated', ({ key }) => {
+      console.log('NEW SHIT AVAILABLE', key);
     });
 
     this.swarm.on('connection', (socket: Duplex, details: unknown) => {

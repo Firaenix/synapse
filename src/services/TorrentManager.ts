@@ -11,7 +11,7 @@ import stream from 'stream';
 
 @injectable()
 export class TorrentManager {
-  private downloadStream: stream.Readable;
+  public downloadStream: stream.Readable;
 
   /**
    * if files is undefined, you are a leech, seeders have all the data
@@ -33,10 +33,13 @@ export class TorrentManager {
     });
   }
 
-  public startTorrent = (readFromStream?: (ds: stream.Readable) => void) => {
-    readFromStream?.(this.downloadStream);
+  public startTorrent = () => {
     this.peerManager.bootstrapManager(this.onPieceValidated);
   };
+
+  public updateTorrent = () => {};
+
+  private waitForUpdates = () => {};
 
   private verifyIsFinishedDownloading = () => {
     console.log('Got', this.pieceManager.getPieceCount(), 'pieces /', this.metainfoService.pieceCount);

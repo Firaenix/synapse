@@ -13,7 +13,10 @@
 - Although this client does support WebRTC in both the browser and the server, a WS proxy server and Discovery server must be specified. (No data will flow through these servers, it is purely used to allow peers to discover eachother)
 - Discovery Server: https://github.com/geut/discovery-swarm-webrtc
 - Proxy Server: https://github.com/RangerMauve/hyperswarm-web#setting-up-a-proxy-server
-- When saving data to a DHT it is SHA256 hashed as a limitation of hyperswarm, must be 256bits in length. So when we use an infosig, it becomes HASH(SIGN(HASH(METAINFO))) or for infohash its HASH(HASH(METAINFO))
+
+### Bittorrent DHT
+
+- When saving data to a DHT it is SHA1 hashed as a limitation of bittorrent-dht. So when we use an infosig, it becomes SHA1(YOUR_SIG(YOUR_HASH(METAINFO))) or for infohash its SHA1(YOUR_HASH(METAINFO))
 
 ### To Do:
 

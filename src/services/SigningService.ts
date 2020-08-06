@@ -1,20 +1,27 @@
 import { ISigningService } from './interfaces/ISigningService';
-import { singleton } from 'tsyringe';
-import eccrypto from 'eccrypto';
-
-type Strats = { [algo: string]: (buf: Buffer, prKey: Buffer) => Promise<Buffer> };
+import { singleton, inject, injectAll } from 'tsyringe';
+import hypersign from '@hyperswarm/hypersign';
+import { ISigningAlgorithm, SupportedSignatureAlgorithms } from './interfaces/ISigningAlgorithm';
 
 @singleton()
 export class SigningService implements ISigningService {
-  private strategies: Strats = {
-    ['ecdsa']: this.ECDSASign
-  };
+  private readonly strategies: { [x: string]: ISigningAlgorithm } = {};
 
-  private ECDSASign(buf: Buffer, prKey: Buffer): Promise<Buffer> {
-    return eccrypto.sign(prKey, buf);
+  constructor(@injectAll('ISigningAlgorithm') signingAlgos: ISigningAlgorithm[]) {
+    for (const algo of signingAlgos) {
+      this.strategies[algo.algorithm] = algo;
+    }
   }
 
-  public sign(data: Buffer, privateKey: Buffer, supportedSignatureAlgos: 'ecdsa') {
-    return this.strategies[supportedSignatureAlgos](data, privateKey);
+  public sign(data: Buffer, privateKey: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms) {
+    return this.strategies[supportedSignatureAlgos].sign(data, privateKey);
+  }
+
+  public generateKeyPair(supportedSignatureAlgos: SupportedSignatureAlgorithms) {
+    return this.strategies[supportedSignatureAlgos].generateKeyPair();
+  }
+
+  public verify(message: Buffer, signature: Buffer, publicKey: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms) {
+    return this.strategies[supportedSignatureAlgos].verify(message, signature, publicKey);
   }
 }

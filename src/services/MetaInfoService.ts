@@ -10,7 +10,7 @@ export class MetaInfoService {
   public readonly infohash: Buffer;
   public readonly pieceCount: number;
   public readonly infosig?: Buffer;
-  public readonly infosigAlgo?: 'ecdsa';
+  public readonly infosigAlgo?: 'ed25519';
 
   constructor(public readonly metainfo: MetainfoFile | SignedMetainfoFile, public readonly fileChunks: Array<Buffer>) {
     this.infohash = metainfo.infohash;

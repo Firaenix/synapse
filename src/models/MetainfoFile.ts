@@ -6,7 +6,8 @@ export interface MetainfoFile {
 
 export interface SignedMetainfoFile extends MetainfoFile {
   infosig: Buffer;
-  ['infosig algo']: 'ecdsa';
+  ['pub key']: Buffer;
+  ['infosig algo']: 'ed25519';
 }
 
 export function isSignedMetainfo(x: MetainfoFile | SignedMetainfoFile): x is SignedMetainfoFile {
