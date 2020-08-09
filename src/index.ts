@@ -1,16 +1,11 @@
 import 'reflect-metadata';
 import './typings';
-import fs, { promises as fsPromises } from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { HashService } from './services/HashService';
 import { Client } from './Client';
 import recursiveReadDir from './utils/recursiveReadDir';
-import elliptic from 'elliptic';
 import { DHTService } from './services/DHTService';
-import HyperDHT from '@hyperswarm/dht';
-import crypto from 'crypto';
-import { SigningService } from './services/SigningService';
-import { ED25519Algorithm } from './services/signaturealgorithms/ED25519Algorithm';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
 
 export const hasher = new HashService();
@@ -39,12 +34,12 @@ export const hasher = new HashService();
   const instance = new Client();
   const { publicKey, secretKey } = await new ED25519SuperCopAlgorithm().generateKeyPair();
 
-  const dht = new DHTService();
+  const dht = new DHTService(new ED25519SuperCopAlgorithm());
 
-  const key = await dht.publish({ publicKey, secretKey }, Buffer.from('JUST SOME SHIT'), 0);
+  const key = await dht.publish({ publicKey, secretKey }, Buffer.alloc(200).fill('whatever'), 0);
   const value = await dht.get(key);
 
-  console.log('KV', key.toString('hex'), value);
+  console.log('KV', key.toString('hex'), value.toString());
 
   dht.subscribe(key, 500, (data) => {
     console.log('NEW DATA!', data);
@@ -53,7 +48,7 @@ export const hasher = new HashService();
   let nonce = 1;
   setInterval(async () => {
     const newKey = await dht.publish({ publicKey, secretKey }, Buffer.concat([Buffer.from([nonce]), Buffer.from('GIMME DAT NEW SHIET')]), nonce);
-    console.log('UPDATED KEY?', newKey.toString('hex'), key.toString('hex'));
+    console.log('UPDATED KEY?', newKey.toString(), key.toString());
     nonce++;
   }, 2000);
 

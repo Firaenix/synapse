@@ -5,16 +5,16 @@ export class ED25519SuperCopAlgorithm implements ISigningAlgorithm {
   public readonly algorithm = SupportedSignatureAlgorithms.ed25519;
 
   public sign = (message: Buffer, privateKey: Buffer, publicKey?: Buffer) => {
-    return Promise.resolve(supercop.sign(message, publicKey, privateKey));
+    return supercop.sign(message, publicKey, privateKey);
   };
 
   public verify = (message: Buffer, signature: Buffer, publicKey: Buffer) => {
-    return Promise.resolve(supercop.verify(signature, message, publicKey));
+    return supercop.verify(signature, message, publicKey);
   };
 
   public generateKeyPair = (): Promise<KeyPair> => {
     const seed = supercop.createSeed();
     const keys = supercop.createKeyPair(seed);
-    return Promise.resolve({ publicKey: Buffer.from(keys.publicKey), secretKey: Buffer.from(keys.secretKey) });
+    return Promise.resolve({ publicKey: keys.publicKey, secretKey: keys.secretKey });
   };
 }

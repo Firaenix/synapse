@@ -1,21 +1,16 @@
 import { EventEmitter } from 'events';
 import BittorrentDHT, { DHT } from 'bittorrent-dht';
-import { ED25519Algorithm } from './signaturealgorithms/ED25519Algorithm';
 import { ED25519SuperCopAlgorithm } from './signaturealgorithms/ED25519SuperCopAlgorithm';
 import { KeyPair } from './interfaces/ISigningAlgorithm';
 
 export class DHTService extends EventEmitter {
   private readonly dht: DHT;
-  private readonly ed25519algo: ED25519SuperCopAlgorithm;
 
-  constructor() {
+  constructor(private readonly ed25519algo: ED25519SuperCopAlgorithm) {
     super();
-    this.ed25519algo = new ED25519SuperCopAlgorithm();
-
     this.dht = new BittorrentDHT({
-      verify: async (signature: Buffer, value: Buffer, publicKey: Buffer) => {
-        console.log(signature, value, publicKey);
-        return !!(await this.ed25519algo.verify(value, signature, publicKey));
+      verify: (sig, msg, pubkey) => {
+        return this.ed25519algo.verify(msg, sig, pubkey);
       }
     });
   }
@@ -28,8 +23,7 @@ export class DHTService extends EventEmitter {
         }
 
         if (!data) {
-          console.log('No data returned?');
-          return res({ signature: Buffer.alloc(0), value: Buffer.alloc(0) });
+          throw new Error('No data returned, check your signing algorithm');
         }
 
         console.log('GET', data);
@@ -57,9 +51,8 @@ export class DHTService extends EventEmitter {
           v: data,
           k: keyPair.publicKey,
           seq,
-          sign: async (msg) => {
-            const sig = await this.ed25519algo.sign(msg, keyPair.secretKey, keyPair.publicKey);
-            return sig;
+          sign: (buf) => {
+            return this.ed25519algo.sign(buf, keyPair.secretKey, keyPair.publicKey);
           }
         },
         (err: Error, hash: Buffer) => {

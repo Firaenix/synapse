@@ -490,6 +490,13 @@ bitfield@^3.0.0:
   resolved "https://registry.yarnpkg.com/bitfield/-/bitfield-3.0.0.tgz#b2d32c707866d42f016ae9bd8469999a9f51b59c"
   integrity sha512-hJmWKucJQfdSkQPDPBKmWogM9s8+NOSzDT9QVbJbjinXaQ0bJKPu/cn98qRWy3PDNWtKw4XaoUP3XruGRIKEgg==
 
+bittorrent-dht-sodium@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/bittorrent-dht-sodium/-/bittorrent-dht-sodium-1.2.0.tgz#6e05f05248ffc91e306c58ae02a868f4f9b0942c"
+  integrity sha512-qDUtTixcqizCb1hjsi/JnxXljna2R+93ZSWq77phKEf5sgs3Yda17+lanMKLaMGGeuwN60UXfrtmxHCtb6Rehw==
+  dependencies:
+    sodium-native "^3.0.0"
+
 bittorrent-dht@^10.0.0:
   version "10.0.0"
   resolved "https://registry.yarnpkg.com/bittorrent-dht/-/bittorrent-dht-10.0.0.tgz#01de59bb03ed86a8847cb533134925d236d7f565"
@@ -2948,7 +2955,7 @@ socket.io@^2.2.0:
     socket.io-client "2.3.0"
     socket.io-parser "~3.4.0"
 
-sodium-native@^3.0.1, sodium-native@^3.1.1:
+sodium-native@^3.0.0, sodium-native@^3.0.1, sodium-native@^3.1.1:
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/sodium-native/-/sodium-native-3.2.0.tgz#68a9469b96edadffef320cbce51294ad5f72a37f"
   integrity sha512-8aq/vQSegLwsRch8Sb/Bpf9aAqlNe5dp0+NVhb9UjHv42zDZ0D5zX3wBRUbXK9Ejum9uZE6DUgT4vVLlUFRBWg==

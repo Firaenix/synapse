@@ -13,7 +13,7 @@ declare module 'bittorrent-dht' {
     removeNode(id: any): void;
     toJSON(): any;
     put(opts: any, cb: any): any;
-    get(key: any, opts: any, cb: any): void;
+    get(key: any, opts: any | undefined, cb: any): void;
     announce(infoHash: any, port: any, cb: any): any;
     lookup(infoHash: any, cb: any): () => void;
     address(): any;

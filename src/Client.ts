@@ -10,13 +10,12 @@ import { PieceManager } from './services/PieceManager';
 import { PeerManager } from './services/PeerManager';
 import { chunkBuffer } from './utils/chunkBuffer';
 import { MetaInfoService } from './services/MetaInfoService';
-import stream from 'stream';
 import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { SigningService } from './services/SigningService';
-import { ED25519Algorithm } from './services/signaturealgorithms/ED25519Algorithm';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
+import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
 
 export interface Settings {
   extensions?: Extension[];
@@ -37,7 +36,11 @@ const registerDependencies = () => {
   });
 
   container.register('ISigningAlgorithm', {
-    useClass: ED25519Algorithm
+    useClass: ED25519SuperCopAlgorithm
+  });
+
+  container.register(ED25519SuperCopAlgorithm, {
+    useClass: ED25519SuperCopAlgorithm
   });
 
   container.register('IPeerStrategy', {

@@ -36,6 +36,7 @@
     "bencode": "^2.0.1",
     "bitfield": "^3.0.0",
     "bittorrent-dht": "^10.0.0",
+    "bittorrent-dht-sodium": "^1.2.0",
     "blake3": "^2.1.4",
     "browserify": "^16.5.1",
     "create-torrent": "^4.4.2",
