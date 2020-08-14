@@ -6,12 +6,15 @@ import { IHashService } from './HashService';
 import { DownloadedFile } from '../models/DiskFile';
 import { PieceManager } from './PieceManager';
 import { ExtensionsMap } from '@firaenix/bittorrent-protocol/lib/Wire';
+import { MetaInfoService } from './MetaInfoService';
+import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 
 export class Peer {
+  private readonly infoHash: Buffer;
+
   constructor(
     public readonly wire: Wire,
-    private readonly metainfo: MetainfoFile,
-    private readonly infoHash: Buffer,
+    private readonly metainfo: MetaInfoService,
     private readonly pieceManager: PieceManager,
     private readonly myPeerId: Buffer,
     private readonly onPieceValidated?: (index: number, offset: number, piece: Buffer) => void,
@@ -19,7 +22,9 @@ export class Peer {
   ) {
     this.wire.on('error', console.error);
 
-    console.log('Characters in infoHash', Buffer.from(metainfo.infohash).toString('hex'));
+    this.infoHash = metainfo.infohash!;
+
+    console.log('Characters in infoHash', this.infoHash.toString('hex'));
 
     // 5. Recieve the actual data pieces
     this.wire.on('piece', this.onPiece);
@@ -67,8 +72,9 @@ export class Peer {
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
     console.log('Leecher got piece', index, offset, pieceBuf);
 
-    const algo = this.metainfo.info['piece hash algo'];
-    const hash = this.metainfo.info.pieces[index];
+    const algo = this.metainfo.pieceHashAlgo || SupportedHashAlgorithms.sha1;
+
+    const hash = this.pieceManager.getPiece(index);
     console.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
 
     const pieceHash = hasher.hash(pieceBuf, algo);
@@ -76,7 +82,7 @@ export class Peer {
 
     // Checksum failed - re-request piece
     if (!pieceHash.equals(hash)) {
-      this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
+      this.wire.request(index, offset, this.pieceManager.getPieceCount(), (err) => {
         if (err) {
           console.error(this.wire.wireName, 'Error requesting piece again', index, err);
           this.onErrorCallback?.(err);
@@ -93,18 +99,18 @@ export class Peer {
 
   private onBitfield = (recievedBitfield: Bitfield) => {
     console.log(this.wire.wireName, 'recieved bitfield from peer', recievedBitfield);
-    const pieces = this.metainfo.info.pieces;
+    const pieceCount = this.pieceManager.getPieceCount();
 
     console.log(this.wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
 
-    if (pieces.every((_, i) => !this.wire.peerPieces.get(i))) {
+    if (Array(pieceCount).every((_, i) => !this.wire.peerPieces.get(i))) {
       // the peer has no pieces, not interested in talking to you...
       this.wire.uninterested();
       console.log(this.wire.wireName, 'Peer has no pieces, uninterested');
       return;
     }
 
-    for (let index = 0; index < pieces.length; index++) {
+    for (let index = 0; index < pieceCount; index++) {
       // Do they have a piece?
       const peerHasPiece = this.wire.peerPieces.get(index);
       const iHavePiece = this.pieceManager.hasPiece(index);
@@ -119,7 +125,7 @@ export class Peer {
         continue;
       }
 
-      this.wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
+      this.wire.request(index, this.pieceManager.getPieceCount() * index, this.pieceManager.getPieceCount(), (err) => {
         if (err) {
           console.error(this.wire.wireName, 'Error requesting piece', index, err);
           this.onErrorCallback?.(err);
@@ -133,7 +139,7 @@ export class Peer {
 
     if (!this.pieceManager.hasPiece(index)) {
       console.log(this.wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
-      this.wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
+      this.wire.bitfield(new Bitfield(this.pieceManager.getPieceCount()));
       return;
     }
 

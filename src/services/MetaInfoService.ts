@@ -1,5 +1,22 @@
 import { MetainfoFile, SignedMetainfoFile, isSignedMetainfo } from '../models/MetainfoFile';
 import { injectable, scoped, Lifecycle } from 'tsyringe';
+import { SupportedSignatureAlgorithms } from './interfaces/ISigningAlgorithm';
+import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
+
+export interface MetaInfoServiceArgs {
+  infoHash?: {
+    hash: Buffer;
+    algo: SupportedHashAlgorithms;
+  };
+  infoSig?: {
+    sig: Buffer;
+    algo: SupportedSignatureAlgorithms;
+  };
+  pieceCount?: number;
+  pieceHashAlgo?: SupportedHashAlgorithms;
+  filechunks?: Array<Buffer>;
+}
+
 /**
  * Just a wrapper container for storing request level configuration.
  * eg. MetaInfo, InfoHash
@@ -7,18 +24,26 @@ import { injectable, scoped, Lifecycle } from 'tsyringe';
 @injectable()
 @scoped(Lifecycle.ResolutionScoped)
 export class MetaInfoService {
-  public readonly infohash: Buffer;
-  public readonly pieceCount: number;
+  public readonly infohash?: Buffer;
+  public readonly infoHashAlgo?: SupportedHashAlgorithms;
+  public readonly pieceCount?: number;
+  public readonly pieceHashAlgo?: SupportedHashAlgorithms;
+
   public readonly infosig?: Buffer;
-  public readonly infosigAlgo?: 'ed25519';
+  public readonly infosigAlgo?: SupportedSignatureAlgorithms;
 
-  constructor(public readonly metainfo: MetainfoFile | SignedMetainfoFile, public readonly fileChunks: Array<Buffer>) {
-    this.infohash = metainfo.infohash;
-    this.pieceCount = metainfo.info.pieces.length;
+  public readonly fileChunks: Array<Buffer>;
 
-    if (isSignedMetainfo(metainfo)) {
-      this.infosig = metainfo.infosig;
-      this.infosigAlgo = metainfo['infosig algo'];
-    }
+  constructor(args: MetaInfoServiceArgs) {
+    this.infohash = args.infoHash?.hash;
+    this.infoHashAlgo = args.infoHash?.algo;
+
+    this.infosig = args.infoSig?.sig;
+    this.infosigAlgo = args.infoSig?.algo;
+
+    this.pieceCount = args.pieceCount;
+    this.pieceHashAlgo = args.pieceHashAlgo;
+
+    this.fileChunks = args.filechunks || [];
   }
 }

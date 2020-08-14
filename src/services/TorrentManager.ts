@@ -44,6 +44,10 @@ export class TorrentManager {
   private verifyIsFinishedDownloading = () => {
     console.log('Got', this.pieceManager.getPieceCount(), 'pieces /', this.metainfoService.pieceCount);
 
+    if (this.metainfoService.pieceCount === undefined) {
+      return;
+    }
+
     // Still need more pieces
     if (this.pieceManager.getPieceCount() < this.metainfoService.pieceCount) {
       return;

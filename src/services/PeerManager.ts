@@ -30,9 +30,12 @@ export class PeerManager {
     this.onPieceValidated = onPieceValidated;
 
     const infoIdentifier = this.metainfoService.infosig || this.metainfoService.infohash;
-    const infoHashHash = this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256);
 
-    console.log('Setting metainfo', this.metainfoService.metainfo, infoIdentifier, this.peerId, 'this.pieceManager.getBitfield().buffer.length', this.pieceManager.getBitfield().buffer.length);
+    if (!infoIdentifier) {
+      throw new Error('Must have infoIdentifier');
+    }
+
+    const infoHashHash = this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256);
 
     for (const strategy of this.peerDiscoveryStrategies) {
       strategy.startDiscovery(infoHashHash, this.onWireConnected);
@@ -51,7 +54,7 @@ export class PeerManager {
   private onWireConnected = (strategyName: string, connectedWire: Wire) => {
     console.log('Connecting to wire from', strategyName);
 
-    const peer = new Peer(connectedWire, this.metainfoService.metainfo, this.metainfoService.infohash, this.pieceManager, this.peerId, (index, offset, piece) => {
+    const peer = new Peer(connectedWire, this.metainfoService, this.pieceManager, this.peerId, (index, offset, piece) => {
       console.log('YES WE GOT A PIECE', index);
       this.onPieceValidated?.(index, offset, piece);
     });

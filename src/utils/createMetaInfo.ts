@@ -36,6 +36,7 @@ export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hasha
 
   return {
     info: metaInfo,
-    infohash
+    infohash,
+    'infohash algo': hashalgo
   };
 };

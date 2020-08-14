@@ -1,4 +1,4 @@
-import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
+import { MetainfoFile, SignedMetainfoFile, isSignedMetainfo } from './models/MetainfoFile';
 import { Extension } from '@firaenix/bittorrent-protocol';
 import { HashService, IHashService } from './services/HashService';
 import { DiskFile } from './models/DiskFile';
@@ -9,7 +9,7 @@ import { WebRTCPeerStrategy } from './services/peerstrategies/WebRTCPeerStrategy
 import { PieceManager } from './services/PieceManager';
 import { PeerManager } from './services/PeerManager';
 import { chunkBuffer } from './utils/chunkBuffer';
-import { MetaInfoService } from './services/MetaInfoService';
+import { MetaInfoService, MetaInfoServiceArgs } from './services/MetaInfoService';
 import { createMetaInfo } from './utils/createMetaInfo';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { ISigningService } from './services/interfaces/ISigningService';
@@ -88,7 +88,7 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
+  public addTorrent = (metainfo: MetainfoFile | SignedMetainfoFile, files: Array<DiskFile> = []) => {
     const requestContainer = container.createChildContainer();
 
     requestContainer.register(PieceManager, {
@@ -104,7 +104,27 @@ export class Client {
       fileChunks = files.map((x) => chunkBuffer(x.file, metainfo.info['piece length'])).flat();
     }
 
-    requestContainer.registerInstance(MetaInfoService, new MetaInfoService(metainfo, fileChunks));
+    let infoSig: any = undefined;
+    if (isSignedMetainfo(metainfo)) {
+      infoSig = {
+        sig: metainfo.infosig,
+        algo: metainfo['infosig algo']
+      };
+    }
+
+    requestContainer.registerInstance(
+      MetaInfoService,
+      new MetaInfoService({
+        infoHash: {
+          hash: metainfo.infohash,
+          algo: metainfo.info['piece hash algo']
+        },
+        infoSig,
+        filechunks: fileChunks,
+        pieceCount: metainfo.info.pieces.length,
+        pieceHashAlgo: metainfo.info['piece hash algo']
+      })
+    );
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
@@ -112,5 +132,32 @@ export class Client {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.torrents.push(torrentManager);
     return torrentManager;
+  };
+
+  public searchForTorrentByInfoIdentifier = (infoId: string, infoHashAlgo?: SupportedHashAlgorithms, infoSigAlgo?: SupportedSignatureAlgorithms) => {
+    const requestContainer = container.createChildContainer();
+    requestContainer.register(PeerManager, {
+      useClass: PeerManager
+    });
+
+    const infoIdBuffer = Buffer.from(infoId);
+    requestContainer.registerInstance(
+      MetaInfoService,
+      new MetaInfoService({
+        infoHash: infoHashAlgo && {
+          hash: infoIdBuffer,
+          algo: infoHashAlgo
+        },
+        infoSig: infoSigAlgo && {
+          sig: infoIdBuffer,
+          algo: infoSigAlgo
+        }
+      })
+    );
+
+    // take infoID, search for peers with it and the ut_metadata extension
+
+    const peerManager = requestContainer.resolve(PeerManager);
+    // peerManager.bootstrapManager();
   };
 }

@@ -58,7 +58,12 @@ export class PieceManager {
     }
 
     this.setHasPiece(index, true);
-    this.hashChunks.splice(index, 0, this.hashService.hash(pieceBuffer, this.metainfoService.metainfo.info['piece hash algo']));
+    const pieceHashAlgo = this.metainfoService.pieceHashAlgo;
+    if (!pieceHashAlgo) {
+      throw new Error('No piece hash algo defined');
+    }
+
+    this.hashChunks.splice(index, 0, this.hashService.hash(pieceBuffer, pieceHashAlgo));
   };
 
   public getPieceCount = () => {
