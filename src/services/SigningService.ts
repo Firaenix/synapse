@@ -13,8 +13,8 @@ export class SigningService implements ISigningService {
     }
   }
 
-  public sign(data: Buffer, privateKey: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms) {
-    return this.strategies[supportedSignatureAlgos].sign(data, privateKey);
+  public sign(data: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms, privateKey: Buffer, publicKey?: Buffer) {
+    return this.strategies[supportedSignatureAlgos].sign(data, privateKey, publicKey);
   }
 
   public generateKeyPair(supportedSignatureAlgos: SupportedSignatureAlgorithms) {

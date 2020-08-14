@@ -1,5 +1,10 @@
 import Wire from '@firaenix/bittorrent-protocol';
+import { EventEmitter } from 'events';
 
-export interface IPeerStrategy {
-  startDiscovery: (infoHash: Buffer, onPeerFoundCallback: (strategyName: string, connectedWire: Wire) => void) => void;
+export const PeerStrategyEvents = {
+  found: Symbol('found')
+};
+
+export interface IPeerStrategy extends EventEmitter {
+  startDiscovery: (infoIdentifier: Buffer) => void;
 }

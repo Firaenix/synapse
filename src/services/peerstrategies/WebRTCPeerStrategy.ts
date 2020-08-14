@@ -1,13 +1,15 @@
-import { IPeerStrategy } from '../interfaces/IPeerStrategy';
+import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 import hyperswarm from 'hyperswarm-web';
 import Wire from '@firaenix/bittorrent-protocol';
 import { Duplex } from 'stream';
 import { isServer } from '../../utils/isServer';
+import { EventEmitter } from 'events';
 
-export class WebRTCPeerStrategy implements IPeerStrategy {
+export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
   private readonly swarm: any;
 
   constructor() {
+    super();
     this.swarm = hyperswarm({
       // If you omit this, it'll try to connect to 'wss://hyperswarm.mauve.moe'
       // It will also attempt to connect to a local proxy on `ws://localhost:4977`
@@ -24,8 +26,8 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
     });
   }
 
-  public startDiscovery = (infoHash: Buffer, onPeerFoundCallback: (strategyName: string, connectedWire: Wire) => void) => {
-    this.swarm.join(infoHash, {
+  public startDiscovery = (infoIdentifier: Buffer) => {
+    this.swarm.join(infoIdentifier, {
       lookup: true, // find & connect to peers
       announce: true // optional- announce self as a connection target
     });
@@ -39,7 +41,7 @@ export class WebRTCPeerStrategy implements IPeerStrategy {
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)
       wire.pipe(socket).pipe(wire);
-      onPeerFoundCallback('WebRTCPeerStrategy', wire);
+      this.emit(PeerStrategyEvents.found, 'WebRTCPeerStrategy', wire, infoIdentifier);
     });
   };
 }

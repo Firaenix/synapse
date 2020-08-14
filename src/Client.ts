@@ -65,12 +65,12 @@ export class Client {
   constructor(@inject('IHashService') private hashService?: IHashService, @inject('ISigningService') private readonly signingService?: ISigningService) {}
 
   generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms): Promise<MetainfoFile>;
-  generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer): Promise<SignedMetainfoFile>;
-  public async generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer) {
+  generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer): Promise<SignedMetainfoFile>;
+  public async generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer) {
     const metainfo = createMetaInfo(diskFiles, torrentName, hashalgo);
 
     if (privateKeyBuffer) {
-      const signature = await this.signingService?.sign(metainfo.infohash, privateKeyBuffer, SupportedSignatureAlgorithms.ed25519);
+      const signature = await this.signingService?.sign(metainfo.infohash, SupportedSignatureAlgorithms.ed25519, privateKeyBuffer, publicKeyBuffer);
 
       return {
         ...metainfo,
@@ -108,7 +108,7 @@ export class Client {
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
-    torrentManager.startTorrent();
+    torrentManager.addTorrent(metainfo);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.torrents.push(torrentManager);
     return torrentManager;

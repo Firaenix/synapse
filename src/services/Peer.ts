@@ -1,25 +1,23 @@
 import { Wire, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
-import { MetainfoFile } from '../models/MetainfoFile';
-import { hasher } from '../index';
-import { IHashService } from './HashService';
-import { DownloadedFile } from '../models/DiskFile';
-import { PieceManager } from './PieceManager';
-import { ExtensionsMap } from '@firaenix/bittorrent-protocol/lib/Wire';
+import { EventEmitter } from 'events';
 
-export class Peer {
-  constructor(
-    public readonly wire: Wire,
-    private readonly metainfo: MetainfoFile,
-    private readonly infoHash: Buffer,
-    private readonly pieceManager: PieceManager,
-    private readonly myPeerId: Buffer,
-    private readonly onPieceValidated?: (index: number, offset: number, piece: Buffer) => void,
-    private readonly onErrorCallback?: (e: Error) => void
-  ) {
+export const PeerEvents = {
+  need_bitfield: Symbol('need:bitfield'),
+  got_piece: Symbol('on:piece'),
+  got_bitfield: Symbol('on:bitfield'),
+  got_request: Symbol('on:request')
+};
+
+export class Peer extends EventEmitter {
+  public bitfield: Bitfield | undefined;
+
+  constructor(public readonly wire: Wire, private readonly infoIdentifier: Buffer, private readonly myPeerId: Buffer) {
+    super();
+
     this.wire.on('error', console.error);
 
-    console.log('Characters in infoHash', Buffer.from(metainfo.infohash).toString('hex'));
+    console.log('Characters in infoIdentifier', Buffer.from(infoIdentifier).toString('hex'));
 
     // 5. Recieve the actual data pieces
     this.wire.on('piece', this.onPiece);
@@ -34,18 +32,28 @@ export class Peer {
     // 2. On recieved Extended Handshake (normal handshake follows up with extended handshake), send Bitfield
     this.wire.on('extended', this.onExtended);
 
+    this.wire.setKeepAlive(true);
+
     try {
       // 1. Send Handshake
-      this.wire.handshake(this.infoHash, this.myPeerId);
+      this.wire.handshake(this.infoIdentifier, this.myPeerId);
     } catch (error) {
       console.error(error);
     }
   }
 
-  private keepAliveLoop = () => {
-    setInterval(() => {
-      this.wire.keepAlive();
-    }, 1000 * 30);
+  private onPiece = (index: number, offset: number, pieceBuf: Buffer) => {
+    this.emit(PeerEvents.got_piece, index, offset, pieceBuf);
+  };
+
+  private onBitfield = (bitfield: Bitfield) => {
+    this.bitfield = bitfield;
+
+    this.emit(PeerEvents.got_bitfield, this.wire, bitfield);
+  };
+
+  private onRequest = (index: number, offset: number, length: number) => {
+    this.emit(PeerEvents.got_request, this.wire, index, offset, length);
   };
 
   private onExtended = (_: string, extensions: ExtendedHandshake) => {
@@ -57,86 +65,10 @@ export class Peer {
       return;
     }
 
-    // Make sure we dont disconnect from the peer, keep sending them pings
-    this.keepAliveLoop();
-
     this.wire.unchoke();
-    this.wire.bitfield(this.pieceManager.getBitfield());
-  };
 
-  private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
-    console.log('Leecher got piece', index, offset, pieceBuf);
-
-    const algo = this.metainfo.info['piece hash algo'];
-    const hash = this.metainfo.info.pieces[index];
-    console.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
-
-    const pieceHash = hasher.hash(pieceBuf, algo);
-    console.log(this.wire.wireName, 'Does piece match hash?', pieceHash.equals(hash));
-
-    // Checksum failed - re-request piece
-    if (!pieceHash.equals(hash)) {
-      this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
-        if (err) {
-          console.error(this.wire.wireName, 'Error requesting piece again', index, err);
-          this.onErrorCallback?.(err);
-        }
-      });
-      return;
-    }
-
-    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
-    this.wire.have(index);
-    console.log(this.wire.wireName, 'Broadcasted that we have piece', index, 'this.onPieceValidated function exists?', !!this.onPieceValidated);
-    this.onPieceValidated?.(index, offset, pieceBuf);
-  };
-
-  private onBitfield = (recievedBitfield: Bitfield) => {
-    console.log(this.wire.wireName, 'recieved bitfield from peer', recievedBitfield);
-    const pieces = this.metainfo.info.pieces;
-
-    console.log(this.wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
-
-    if (pieces.every((_, i) => !this.wire.peerPieces.get(i))) {
-      // the peer has no pieces, not interested in talking to you...
-      this.wire.uninterested();
-      console.log(this.wire.wireName, 'Peer has no pieces, uninterested');
-      return;
-    }
-
-    for (let index = 0; index < pieces.length; index++) {
-      // Do they have a piece?
-      const peerHasPiece = this.wire.peerPieces.get(index);
-      const iHavePiece = this.pieceManager.hasPiece(index);
-
-      // Not interested if I have piece
-      if (iHavePiece) {
-        continue;
-      }
-
-      // Not interested if you dont have piece
-      if (!peerHasPiece) {
-        continue;
-      }
-
-      this.wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
-        if (err) {
-          console.error(this.wire.wireName, 'Error requesting piece', index, err);
-          this.onErrorCallback?.(err);
-        }
-      });
-    }
-  };
-
-  private onRequest = (index: number, offset: number, length: number) => {
-    console.log(this.wire.wireName, 'Incoming request ', index, offset, length);
-
-    if (!this.pieceManager.hasPiece(index)) {
-      console.log(this.wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
-      this.wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
-      return;
-    }
-
-    this.wire.piece(index, offset, this.pieceManager.getPiece(index));
+    this.emit(PeerEvents.need_bitfield, (bitfield: Bitfield) => {
+      this.wire.bitfield(bitfield);
+    });
   };
 }

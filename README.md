@@ -52,6 +52,43 @@
 
 - [ ] Nice API for accessing torrents on the fly Torrent.stream, yield Torrent.nextPiece()
 
+### Thoughts:
+
+Mutable Torrents:
+
+- In the standard Mutable Torrent spec, it specifies that you should use 1 priv/pub key per torrent (seemingly).  
+  However, the issue with that in regards to this service is that users would need to store many many private/public keys per each file uploaded.  
+  This is a pain in the ass and although it should be possible, it should not be required.
+
+- Instead of 1 keypair per torrent, I propose using a signature of the infohash of the original torrent.  
+  eg. HASH(OriginalInfoSig) -> { NewInfoHash, SIG(NewInfoHash), PublicKey, OriginalInfoSig, seq }
+  1. This would allow someone to look up the newest infohash from the original infosig.
+  2. Validate that the NewInfoHash + SIG(NewInfoHash) is valid with the public key.
+  3. Validate that the PublicKey published in the update is the same PublicKey associated with the OriginalInfoSig.
+  4. Use seq to identify what iteration of the torrent we are looking at.
+
+Application Structure:
+
+- Each added Torrent exists within its own scope/lifecycle. (TorrentManager.addTorrent)
+- Each Torrent remembers a list of peers (PeerManager) and which pieces it has along with the InfoHash associated
+- Observer Pattern, Torrent Manager sits in the middle and recieves events.
+  1. For example, when a new peer is found, the Peer Manager alerts the TorrentManager, to which the torrent manager will ask what pieces they have.
+  2. Or another example, when the UpdateScanner notices there is a new update for a given InfoSig, it will call back to the TorrentManager to get the latest metainfo file and validate which pieces have changed.
+- What do you need to seed a torrent?
+  1. Metainfo
+  2. Pieces
+- What do you need to leech a torrent?
+  1. InfoHash/InfoSig
+- Search for Metainfo from InfoIdentifier (InfoID)
+  1. Search DHT for Peers with the given InfoID
+  2. Use ut_metadata extension to retrieve metainfo
+  3. Start standard TorrentManager with no pieces
+- InfoID vs InfoHash vs InfoSig  
+  InfoID is the generic name for either the InfoHash or the InfoSig.  
+  If an InfoSig exists, use that instead of InfoHash.  
+  InfoSig implies a pseudonymous user has uploaded data that may be mutated in the future.  
+  InfoHash is an immutable store of a value.
+
 ### With thanks to:
 
 - WebTorrent Creators
