@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 
 export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStrategy {
   private readonly swarm: hyperswarm;
+  public name = 'ClassicNetworkPeerStrategy';
 
   constructor() {
     super();
@@ -18,13 +19,13 @@ export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStr
     });
 
     this.swarm.on('updated', ({ key }) => {
-      console.log('NEW SHIT AVAILABLE', key);
+      this.emit(PeerStrategyEvents.got_update, key);
     });
 
     this.swarm.on('connection', (socket, details) => {
       const wire = new Wire();
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, 'ClassicNetworkPeerStrategy', wire, infoHash);
+      this.emit(PeerStrategyEvents.found, this.name, wire, infoHash);
     });
   };
 }

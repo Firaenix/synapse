@@ -2,11 +2,13 @@ import { EventEmitter } from 'events';
 import BittorrentDHT, { DHT } from 'bittorrent-dht';
 import { ED25519SuperCopAlgorithm } from './signaturealgorithms/ED25519SuperCopAlgorithm';
 import { KeyPair } from './interfaces/ISigningAlgorithm';
+import { ILogger } from './interfaces/ILogger';
+import { inject } from 'tsyringe';
 
 export class DHTService extends EventEmitter {
   private readonly dht: DHT;
 
-  constructor(private readonly ed25519algo: ED25519SuperCopAlgorithm) {
+  constructor(private readonly ed25519algo: ED25519SuperCopAlgorithm, @inject('ILogger') private readonly logger: ILogger) {
     super();
     this.dht = new BittorrentDHT({
       verify: (sig, msg, pubkey) => {
@@ -26,7 +28,7 @@ export class DHTService extends EventEmitter {
           throw new Error('No data returned, check your signing algorithm');
         }
 
-        console.log('GET', data);
+        this.logger.log('GET', data);
         return res({ signature: data.sig, value: data.v });
       });
     });
@@ -60,7 +62,7 @@ export class DHTService extends EventEmitter {
             return reject(err);
           }
 
-          console.log(err, hash);
+          this.logger.log(err, hash);
           return res(hash);
         }
       );

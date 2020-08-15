@@ -7,6 +7,7 @@ import { EventEmitter } from 'events';
 
 export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
   private readonly swarm: any;
+  public name = 'WebRTCPeerStrategy';
 
   constructor() {
     super();
@@ -33,7 +34,7 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
     });
 
     this.swarm.on('updated', ({ key }) => {
-      console.log('NEW SHIT AVAILABLE', key);
+      this.emit(PeerStrategyEvents.got_update, key);
     });
 
     this.swarm.on('connection', (socket: Duplex, details: unknown) => {
@@ -41,7 +42,7 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, 'WebRTCPeerStrategy', wire, infoIdentifier);
+      this.emit(PeerStrategyEvents.found, this.name, wire, infoIdentifier);
     });
   };
 }

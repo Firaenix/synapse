@@ -6,6 +6,7 @@ import { injectable, inject } from 'tsyringe';
 import { PieceManager } from './PieceManager';
 import stream from 'stream';
 import Wire from '@firaenix/bittorrent-protocol';
+import { ILogger } from './interfaces/ILogger';
 
 @injectable()
 export class TorrentManager {
@@ -20,7 +21,13 @@ export class TorrentManager {
    * @param metainfoFile
    * @param files
    */
-  constructor(@inject('IHashService') private readonly hashService: IHashService, private readonly peerManager: PeerManager, private readonly pieceManager: PieceManager) {
+  constructor(
+    @inject('IHashService') private readonly hashService: IHashService,
+    private readonly peerManager: PeerManager,
+    private readonly pieceManager: PieceManager,
+    @inject('ILogger')
+    private readonly logger: ILogger
+  ) {
     this.downloadStream = new stream.Readable({
       read() {
         return true;
@@ -29,7 +36,7 @@ export class TorrentManager {
 
     this.peerManager.on(PeerManagerEvents.got_bitfield, this.onBitfield);
     this.peerManager.on(PeerManagerEvents.got_request, this.onRequest);
-    this.peerManager.on(PeerManagerEvents.valid_piece, this.onPieceValidated);
+    this.peerManager.on(PeerManagerEvents.got_piece, this.onPiece);
   }
 
   public addTorrent = (metaInfo: MetainfoFile) => {
@@ -45,7 +52,7 @@ export class TorrentManager {
 
   private verifyIsFinishedDownloading = () => {
     const pieceCount = this.metainfo?.info.pieces.length;
-    console.log('Got', this.pieceManager.getPieceCount(), 'pieces /', pieceCount);
+    this.logger.log('Got', this.pieceManager.getPieceCount(), 'pieces /', pieceCount);
 
     if (!pieceCount) {
       throw new Error('No pieces?');
@@ -58,10 +65,48 @@ export class TorrentManager {
 
     // We are done! Say we arent interested anymore
     this.peerManager?.setUninterested();
-    console.log('Finished downloading, uninterested in other peers');
+    this.logger.log('Finished downloading, uninterested in other peers');
 
     this.downloadStream.push(null);
     this.downloadStream.destroy();
+  };
+
+  private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
+    // TODO: Need to Verify Piece
+    if (!this.metainfo) {
+      throw new Error('No metainfo? How did we recieve a piece?');
+    }
+
+    this.logger.log('We got piece', index, offset, pieceBuf);
+
+    if (!this.isPieceValid(index, offset, pieceBuf)) {
+      this.logger.error('Piece is not valid, ask another peer for it', index, offset, pieceBuf.toString('hex'));
+      await this.peerManager.requestPieceAsync(index, offset, this.metainfo.info.pieces.length);
+      return;
+    }
+
+    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
+    this.peerManager.have(index);
+    this.onPieceValidated(index, offset, pieceBuf);
+  };
+
+  private isPieceValid = (index: number, offset: number, pieceBuf: Buffer): boolean => {
+    // TODO: Need to Verify Piece
+    if (!this.metainfo) {
+      throw new Error('No metainfo? How did we recieve a piece?');
+    }
+
+    const algo = this.metainfo.info['piece hash algo'];
+    const hash = this.metainfo.info.pieces[index];
+    this.logger.log('Checking if piece', index, 'passes', algo, 'check', hash);
+
+    const pieceHash = this.hashService.hash(pieceBuf, algo);
+    // Checksum failed - re-request piece
+    if (!pieceHash.equals(hash)) {
+      return false;
+    }
+
+    return true;
   };
 
   private onPieceValidated = (index: number, offset: number, piece: Buffer) => {
@@ -69,7 +114,7 @@ export class TorrentManager {
       this.pieceManager.setPiece(index, piece);
     }
 
-    console.log('We have validated the piece', index, offset, piece);
+    this.logger.log('We have validated the piece', index, offset, piece);
     if (!this.downloadStream.destroyed) {
       this.downloadStream.push(Buffer.concat([Buffer.from(`${index}:${offset}:`), piece]));
     }
@@ -83,12 +128,12 @@ export class TorrentManager {
 
     const pieces = this.metainfo.info.pieces;
 
-    console.log(wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
+    this.logger.log(wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
 
     if (pieces.every((_, i) => !wire.peerPieces.get(i))) {
       // the peer has no pieces, not interested in talking to you...
       wire.uninterested();
-      console.log(wire.wireName, 'Peer has no pieces, uninterested');
+      this.logger.log(wire.wireName, 'Peer has no pieces, uninterested');
       return;
     }
 
@@ -111,7 +156,7 @@ export class TorrentManager {
 
       wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
         if (err) {
-          console.error(wire.wireName, 'Error requesting piece', index, err);
+          this.logger.error(wire.wireName, 'Error requesting piece', index, err);
           throw new Error(err);
         }
       });
@@ -119,14 +164,14 @@ export class TorrentManager {
   };
 
   private onRequest = (wire: Wire, index: number, offset: number, length: number) => {
-    console.log(wire.wireName, 'Incoming request ', index, offset, length);
+    this.logger.log(wire.wireName, 'Incoming request ', index, offset, length);
 
     if (!this.metainfo) {
       throw new Error('Cant recieve request, got no metainfo');
     }
 
     if (!this.pieceManager.hasPiece(index)) {
-      console.log(wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
+      this.logger.log(wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
       wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
       return;
     }

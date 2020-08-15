@@ -9,9 +9,10 @@ import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { v4 as uuid } from 'uuid';
 import { EventEmitter } from 'events';
 import { PieceManager } from './PieceManager';
+import { ILogger } from './interfaces/ILogger';
 
 export const PeerManagerEvents = {
-  valid_piece: Symbol('on:valid_piece'),
+  got_piece: Symbol('on:piece'),
   got_bitfield: Symbol('on:bitfield'),
   got_request: Symbol('on:request')
 };
@@ -25,13 +26,17 @@ export class PeerManager extends EventEmitter {
   constructor(
     @inject('IHashService') private readonly hashService: IHashService,
     @injectAll('IPeerStrategy') private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
-    private readonly pieceManager: PieceManager
+    private readonly pieceManager: PieceManager,
+    @inject('ILogger') private readonly logger: ILogger
   ) {
     super();
     this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1));
 
     for (const strategy of peerDiscoveryStrategies) {
       strategy.on(PeerStrategyEvents.found, this.onWireConnected);
+      strategy.on(PeerStrategyEvents.got_update, (key) => {
+        this.logger.info(strategy.name, 'Updated', key);
+      });
     }
   }
 
@@ -57,8 +62,33 @@ export class PeerManager extends EventEmitter {
     }
   };
 
+  public have = (index: number) => {
+    for (const peer of this.peers) {
+      peer.wire.have(index);
+    }
+  };
+
+  public requestPieceAsync = (index: number, offset: number, length: number) =>
+    new Promise<void>((resolve, reject) => {
+      // Smartly find a peer that does have the piece we need
+      this.logger.warn('NEED TO FIND SMARTER WAY OF REQUESTING PIECES!');
+      const peer = this.peers.find((x) => x.bitfield?.get(index) !== undefined);
+
+      if (!peer) {
+        return reject(new Error("Can't find a peer with that piece"));
+      }
+
+      peer.wire.request(index, offset, length, (err) => {
+        if (err !== undefined) {
+          return reject(err);
+        }
+
+        return resolve();
+      });
+    });
+
   private onWireConnected = (strategyName: string, connectedWire: Wire, infoIdentifier: Buffer) => {
-    const peer = new Peer(connectedWire, infoIdentifier, this.peerId);
+    const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
 
     peer.on(PeerEvents.got_piece, this.onPiece);
     peer.on(PeerEvents.got_bitfield, this.onBitfield);
@@ -69,26 +99,28 @@ export class PeerManager extends EventEmitter {
     });
 
     this.peers.push(peer);
-    console.log(this.peers.length);
+    this.logger.log(this.peers.length);
   };
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
-    console.log('Leecher got piece', index, offset, pieceBuf);
+    this.logger.log('Leecher got piece', index, offset, pieceBuf);
+
+    this.emit(PeerManagerEvents.got_piece, index, offset, pieceBuf);
 
     // TODO: Need to Verify Piece
 
     // const algo = this.metainfo.info['piece hash algo'];
     // const hash = this.metainfo.info.pieces[index];
-    // console.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
+    // this.logger.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
 
     // const pieceHash = hasher.hash(pieceBuf, algo);
-    // console.log(this.wire.wireName, 'Does piece match hash?', pieceHash.equals(hash));
+    // this.logger.log(this.wire.wireName, 'Does piece match hash?', pieceHash.equals(hash));
 
     // // Checksum failed - re-request piece
     // if (!pieceHash.equals(hash)) {
     //   this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
     //     if (err) {
-    //       console.error(this.wire.wireName, 'Error requesting piece again', index, err);
+    //       this.logger.error(this.wire.wireName, 'Error requesting piece again', index, err);
     //       this.onErrorCallback?.(err);
     //     }
     //   });
@@ -99,8 +131,6 @@ export class PeerManager extends EventEmitter {
     for (const peer of this.peers) {
       peer.wire.have(index);
     }
-
-    this.emit(PeerManagerEvents.valid_piece, index, offset, pieceBuf);
   };
 
   private onBitfield = (wire: Wire, recievedBitfield: Bitfield) => {
@@ -108,7 +138,7 @@ export class PeerManager extends EventEmitter {
   };
 
   private onRequest = (wire: Wire, index: number, offset: number, length: number) => {
-    console.log('PeerManager on request', wire.wireName, index, offset, length);
+    this.logger.log('PeerManager on request', wire.wireName, index, offset, length);
     this.emit(PeerManagerEvents.got_request, wire, index, offset, length);
   };
 }

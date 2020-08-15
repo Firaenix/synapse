@@ -16,6 +16,7 @@ import { ISigningService } from './services/interfaces/ISigningService';
 import { SigningService } from './services/SigningService';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
+import { LoglevelLogger } from './services/LogLevelLogger';
 
 export interface Settings {
   extensions?: Extension[];
@@ -27,6 +28,10 @@ const defaultSettings: Settings = {
 };
 
 const registerDependencies = () => {
+  container.register('ILogger', {
+    useClass: LoglevelLogger
+  });
+
   container.register('IHashService', {
     useClass: HashService
   });

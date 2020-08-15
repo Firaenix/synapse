@@ -1,23 +1,24 @@
 import { Wire, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { EventEmitter } from 'events';
+import { ILogger } from './interfaces/ILogger';
+import { inject } from 'tsyringe';
 
 export const PeerEvents = {
   need_bitfield: Symbol('need:bitfield'),
   got_piece: Symbol('on:piece'),
   got_bitfield: Symbol('on:bitfield'),
-  got_request: Symbol('on:request')
+  got_request: Symbol('on:request'),
+  error: Symbol('error')
 };
 
 export class Peer extends EventEmitter {
   public bitfield: Bitfield | undefined;
 
-  constructor(public readonly wire: Wire, private readonly infoIdentifier: Buffer, private readonly myPeerId: Buffer) {
+  constructor(public readonly wire: Wire, private readonly infoIdentifier: Buffer, private readonly myPeerId: Buffer, @inject('ILogger') private readonly logger: ILogger) {
     super();
 
-    this.wire.on('error', console.error);
-
-    console.log('Characters in infoIdentifier', Buffer.from(infoIdentifier).toString('hex'));
+    this.wire.on('error', this.onError);
 
     // 5. Recieve the actual data pieces
     this.wire.on('piece', this.onPiece);
@@ -34,16 +35,16 @@ export class Peer extends EventEmitter {
 
     this.wire.setKeepAlive(true);
 
-    try {
-      // 1. Send Handshake
-      this.wire.handshake(this.infoIdentifier, this.myPeerId);
-    } catch (error) {
-      console.error(error);
-    }
+    // 1. Send Handshake
+    this.wire.handshake(this.infoIdentifier, this.myPeerId);
   }
 
   private onPiece = (index: number, offset: number, pieceBuf: Buffer) => {
     this.emit(PeerEvents.got_piece, index, offset, pieceBuf);
+  };
+
+  private onError = (...args: unknown[]) => {
+    this.emit(PeerEvents.error, this, ...args);
   };
 
   private onBitfield = (bitfield: Bitfield) => {
@@ -57,10 +58,10 @@ export class Peer extends EventEmitter {
   };
 
   private onExtended = (_: string, extensions: ExtendedHandshake) => {
-    console.log(this.wire.wireName, 'Incoming handshake from ', extensions, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
+    this.logger.log(this.wire.wireName, 'Incoming handshake from ', extensions, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
 
     if (this.myPeerId.toString('hex') === this.wire.peerId) {
-      console.warn('Dont want to connect to myself, thats weird.');
+      this.logger.warn('Dont want to connect to myself, thats weird.');
       this.wire.end();
       return;
     }
