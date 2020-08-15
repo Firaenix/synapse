@@ -12,9 +12,9 @@ const Blake3Hash = (buf: Buffer): Buffer => {
   return blake3.createHash().update(buf).digest();
 };
 
-const CryptoHash = (algo: string) => {
+const CryptoHash = (algo: string) => (buf: Buffer) => {
   const hash = crypto.createHash(algo);
-  return (buf: Buffer): Buffer => hash.update(buf).digest();
+  return hash.update(buf).digest();
 };
 
 @singleton()
