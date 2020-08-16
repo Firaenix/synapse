@@ -1,15 +1,18 @@
-import { MetainfoFile } from '../models/MetainfoFile';
-import { Peer, PeerEvents } from './Peer';
-import Bitfield from 'bitfield';
-import { IHashService } from './HashService';
-import { IPeerStrategy, PeerStrategyEvents } from './interfaces/IPeerStrategy';
 import Wire from '@firaenix/bittorrent-protocol';
-import { injectable, injectAll, inject } from 'tsyringe';
-import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
-import { v4 as uuid } from 'uuid';
+import bencode from 'bencode';
+import Bitfield from 'bitfield';
 import { EventEmitter } from 'events';
-import { PieceManager } from './PieceManager';
+import { inject, injectable, injectAll } from 'tsyringe';
+import { v4 as uuid } from 'uuid';
+
+import { MetadataExtension } from '../extensions/Metadata';
+import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
+import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
+import { IPeerStrategy, PeerStrategyEvents } from './interfaces/IPeerStrategy';
+import { MetaInfoService } from './MetaInfoService';
+import { Peer, PeerEvents } from './Peer';
+import { PieceManager } from './PieceManager';
 
 export const PeerManagerEvents = {
   got_piece: Symbol('on:piece'),
@@ -27,10 +30,12 @@ export class PeerManager extends EventEmitter {
     @inject('IHashService') private readonly hashService: IHashService,
     @injectAll('IPeerStrategy') private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
     private readonly pieceManager: PieceManager,
+    private readonly metainfoService: MetaInfoService,
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super();
     this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1));
+    console.log('PEER MANAGER PEERID', this.peerId);
 
     for (const strategy of peerDiscoveryStrategies) {
       strategy.on(PeerStrategyEvents.found, this.onWireConnected);
@@ -68,6 +73,17 @@ export class PeerManager extends EventEmitter {
     }
   };
 
+  public getPeerThatHasPiece = (pieceIndex: number) => {
+    for (const peer of this.peers) {
+      if (!peer.bitfield?.get(pieceIndex)) {
+        continue;
+      }
+
+      return peer;
+    }
+    return undefined;
+  };
+
   public requestPieceAsync = (index: number, offset: number, length: number) =>
     new Promise<void>((resolve, reject) => {
       // Smartly find a peer that does have the piece we need
@@ -87,9 +103,17 @@ export class PeerManager extends EventEmitter {
       });
     });
 
-  private onWireConnected = (strategyName: string, connectedWire: Wire, infoIdentifier: Buffer) => {
+  private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
+    console.log('WIRE CONNECTED');
+    const bencodedMeta = bencode.encode(this.metainfoService.metainfo);
+    connectedWire.use((w) => new MetadataExtension(w, bencodedMeta));
+
     const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
 
+    this.addPeer(peer);
+  };
+
+  public addPeer = (peer: Peer) => {
     peer.on(PeerEvents.got_piece, this.onPiece);
     peer.on(PeerEvents.got_bitfield, this.onBitfield);
     peer.on(PeerEvents.got_request, this.onRequest);

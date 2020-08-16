@@ -10,5 +10,6 @@
   },
   "peacock.color": "#2da7b3",
   "deno.enable": false,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "typescriptHero.imports.organizeOnSave": true
 }

@@ -1,8 +1,9 @@
-import { Wire, ExtendedHandshake } from '@firaenix/bittorrent-protocol';
+import { ExtendedHandshake, Wire } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { EventEmitter } from 'events';
-import { ILogger } from './interfaces/ILogger';
 import { inject } from 'tsyringe';
+
+import { ILogger } from './interfaces/ILogger';
 
 export const PeerEvents = {
   need_bitfield: Symbol('need:bitfield'),
@@ -71,5 +72,9 @@ export class Peer extends EventEmitter {
     this.emit(PeerEvents.need_bitfield, (bitfield: Bitfield) => {
       this.wire.bitfield(bitfield);
     });
+  };
+
+  public destroy = () => {
+    this.wire.destroy();
   };
 }

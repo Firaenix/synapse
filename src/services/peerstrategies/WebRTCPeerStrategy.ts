@@ -1,9 +1,10 @@
-import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
-import hyperswarm from 'hyperswarm-web';
 import Wire from '@firaenix/bittorrent-protocol';
-import { Duplex } from 'stream';
-import { isServer } from '../../utils/isServer';
 import { EventEmitter } from 'events';
+import hyperswarm from 'hyperswarm-web';
+import { Duplex } from 'stream';
+
+import { isServer } from '../../utils/isServer';
+import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 
 export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
   private readonly swarm: any;
@@ -42,7 +43,11 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, this.name, wire, infoIdentifier);
+      this.emit(PeerStrategyEvents.found, wire, infoIdentifier);
     });
+  };
+
+  public stopDiscovery = (infoHash: Buffer) => {
+    this.swarm.leave(infoHash);
   };
 }

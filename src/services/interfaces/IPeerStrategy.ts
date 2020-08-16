@@ -1,4 +1,3 @@
-import Wire from '@firaenix/bittorrent-protocol';
 import { EventEmitter } from 'events';
 
 export const PeerStrategyEvents = {
@@ -9,4 +8,6 @@ export const PeerStrategyEvents = {
 export interface IPeerStrategy extends EventEmitter {
   name: string;
   startDiscovery: (infoIdentifier: Buffer) => void;
+
+  stopDiscovery: (infoIdentifier: Buffer) => void;
 }

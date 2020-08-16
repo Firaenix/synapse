@@ -59,6 +59,7 @@
     "supercop.wasm": "^5.0.1",
     "tsyringe": "^4.3.0",
     "typescript": "^3.9.5",
+    "ut_metadata": "^3.5.1",
     "uuid": "^8.2.0",
     "wrtc": "^0.4.6"
   },

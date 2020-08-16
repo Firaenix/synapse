@@ -1,12 +1,14 @@
-import { PeerManager, PeerManagerEvents } from './PeerManager';
-import { MetainfoFile, isSignedMetainfo } from '../models/MetainfoFile';
-import { IHashService } from './HashService';
-import Bitfield from 'bitfield';
-import { injectable, inject } from 'tsyringe';
-import { PieceManager } from './PieceManager';
-import stream from 'stream';
 import Wire from '@firaenix/bittorrent-protocol';
+import Bitfield from 'bitfield';
+import stream from 'stream';
+import { inject, injectable } from 'tsyringe';
+
+import { Metainfo } from '../models/Metainfo';
+import { isSignedMetainfo, MetainfoFile } from '../models/MetainfoFile';
+import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
+import { PeerManager, PeerManagerEvents } from './PeerManager';
+import { PieceManager } from './PieceManager';
 
 @injectable()
 export class TorrentManager {
@@ -109,9 +111,26 @@ export class TorrentManager {
     return true;
   };
 
-  private onPieceValidated = (index: number, offset: number, piece: Buffer) => {
+  private onPieceValidated = async (index: number, offset: number, piece: Buffer) => {
+    if (!this.metainfo) {
+      throw new Error('Must have metainfo so we can validate a piece');
+    }
+
     if (!this.pieceManager.hasPiece(index)) {
       this.pieceManager.setPiece(index, piece);
+    }
+
+    // Still need more pieces
+    const totalPieceCount = this.metainfo.info.pieces.length;
+    if (this.pieceManager.getPieceCount() < totalPieceCount) {
+      const pieceIndex = this.chooseNextPieceIndex();
+      const peer = this.peerManager.getPeerThatHasPiece(pieceIndex);
+
+      if (!peer) {
+        throw new Error('No peers have the next piece???');
+      }
+
+      await this.requestNextPiece(peer.wire, pieceIndex, this.metainfo.info);
     }
 
     this.logger.log('We have validated the piece', index, offset, piece);
@@ -121,7 +140,7 @@ export class TorrentManager {
     this.verifyIsFinishedDownloading();
   };
 
-  private onBitfield = (wire: Wire, recievedBitfield: Bitfield) => {
+  private onBitfield = async (wire: Wire, recievedBitfield: Bitfield) => {
     if (!this.metainfo) {
       throw new Error('Cant recieve bitfield, got no metainfo');
     }
@@ -137,30 +156,30 @@ export class TorrentManager {
       return;
     }
 
-    //
+    const pieceIndex = this.chooseNextPieceIndex();
+    this.requestNextPiece(wire, pieceIndex, this.metainfo.info);
+  };
 
-    for (let index = 0; index < pieces.length; index++) {
-      // Do they have a piece?
-      const peerHasPiece = wire.peerPieces.get(index);
-      const iHavePiece = this.pieceManager.hasPiece(index);
-
-      // Not interested if I have piece
-      if (iHavePiece) {
-        continue;
-      }
-
-      // Not interested if you dont have piece
-      if (!peerHasPiece) {
-        continue;
-      }
-
-      wire.request(index, this.metainfo.info['piece length'] * index, this.metainfo.info['piece length'], (err) => {
+  private requestNextPiece = (wire: Wire, pieceIndex: number, metainfo: Metainfo) =>
+    new Promise<void>((resolve, reject) => {
+      wire.request(pieceIndex, metainfo['piece length'] * pieceIndex, metainfo['piece length'], (err) => {
         if (err) {
-          this.logger.error(wire.wireName, 'Error requesting piece', index, err);
-          throw new Error(err);
+          this.logger.error(wire.wireName, 'Error requesting piece, trying again', pieceIndex, err);
+          this.requestNextPiece(wire, pieceIndex, metainfo);
+          return reject(err);
         }
+        return resolve();
       });
+    });
+
+  private chooseNextPieceIndex = (excluding: Array<number> = []): number => {
+    if (!this.metainfo) {
+      throw new Error('Cant choose next piece, got no metainfo');
     }
+    const pieces = this.metainfo.info.pieces;
+
+    const pieceIndex = pieces.findIndex((_, index) => !this.pieceManager.hasPiece(index) && !excluding.includes(index));
+    return pieceIndex;
   };
 
   private onRequest = (wire: Wire, index: number, offset: number, length: number) => {

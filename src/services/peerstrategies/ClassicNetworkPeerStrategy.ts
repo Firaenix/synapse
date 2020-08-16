@@ -1,7 +1,9 @@
-import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
-import hyperswarm from 'hyperswarm';
 import Wire from '@firaenix/bittorrent-protocol';
 import { EventEmitter } from 'events';
+import hyperswarm from 'hyperswarm';
+import { v4 as uuid } from 'uuid';
+
+import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 
 export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStrategy {
   private readonly swarm: hyperswarm;
@@ -11,6 +13,9 @@ export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStr
     super();
     this.swarm = hyperswarm();
   }
+  public stopDiscovery = (infoHash: Buffer) => {
+    this.swarm.leave(infoHash);
+  };
 
   public startDiscovery = (infoHash: Buffer) => {
     this.swarm.join(infoHash, {
@@ -23,9 +28,9 @@ export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStr
     });
 
     this.swarm.on('connection', (socket, details) => {
-      const wire = new Wire();
+      const wire = new Wire(uuid());
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, this.name, wire, infoHash);
+      this.emit(PeerStrategyEvents.found, wire, infoHash);
     });
   };
 }
