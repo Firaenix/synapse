@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { Client } from './Client';
-import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+import { SignedMetainfoFile } from './models/MetainfoFile';
 import { HashService } from './services/HashService';
 import { LoglevelLogger } from './services/LogLevelLogger';
 import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
@@ -64,11 +64,14 @@ export const streamDownloader = new StreamDownloadService(logger);
   //   nonce++;
   // }, 2000);
 
-  const metainfoFile = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1);
-  fs.writeFileSync('./mymetainfo.ben', bencode.encode(metainfoFile));
-  instance.addTorrent(metainfoFile, files);
+  // const seederMetainfo = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, Buffer.from(secretKey), Buffer.from(publicKey));
+  // fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
+  // instance.addTorrent(seederMetainfo, files);
 
-  const discoveredMeta = await new TorrentDiscovery([new ClassicNetworkPeerStrategy()], hasher, logger).discoverByInfoHash(metainfoFile.infohash);
+  const metainfobuffer = fs.readFileSync('./mymetainfo.ben');
+  const metainfoFile = bencode.decode(metainfobuffer) as SignedMetainfoFile;
+
+  const discoveredMeta = await new TorrentDiscovery([new ClassicNetworkPeerStrategy()], hasher, logger).discoverByInfoSig(metainfoFile.infosig);
 
   logger.warn(discoveredMeta);
 

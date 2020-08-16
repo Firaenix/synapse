@@ -52,7 +52,37 @@ export class TorrentDiscovery implements ITorrentDiscovery {
       }
     });
 
-  public async discoverByInfoSig(infoSig: Buffer): Promise<MetainfoFile> {
-    throw new Error('Method not implemented.');
-  }
+  public discoverByInfoSig = (infoSig: Buffer): Promise<MetainfoFile> =>
+    new Promise<MetainfoFile>((resolve, reject) => {
+      const peerList: Peer[] = [];
+
+      for (const strat of this.peerStrategies) {
+        const infoSigHash = this.hashService.hash(infoSig, SupportedHashAlgorithms.sha256);
+        strat.startDiscovery(infoSigHash);
+
+        strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
+          console.log('DISCOVERED NEW PEER');
+          const metadataExtension = new MetadataExtension(connectedWire);
+          connectedWire.use(() => metadataExtension);
+          const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
+          console.log('DISCOVERY PEERID', peerId);
+
+          peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
+
+          metadataExtension.eventBus.on(MetadataExtensionEvents.ReceivedMetainfo, (buf: Buffer) => {
+            const metainfo = bencode.decode(buf) as MetainfoFile;
+            for (const peer of peerList) {
+              peer.destroy();
+            }
+
+            for (const strat of this.peerStrategies) {
+              strat.stopDiscovery(infoSigHash);
+              strat.removeAllListeners(PeerStrategyEvents.found);
+            }
+
+            resolve(metainfo);
+          });
+        });
+      }
+    });
 }
