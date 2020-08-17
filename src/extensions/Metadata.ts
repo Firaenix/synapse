@@ -2,7 +2,7 @@ import Wire, { ExtendedHandshake, Extension, HandshakeExtensions } from '@firaen
 import bencode from 'bencode';
 import { EventEmitter } from 'events';
 
-import { MetainfoFile } from '../models/MetainfoFile';
+import { MetaInfoService } from '../services/MetaInfoService';
 
 enum MetainfoFlags {
   have_metadata = 0x0,
@@ -19,14 +19,13 @@ export class MetadataExtension extends Extension {
   public requirePeer?: boolean | undefined;
   public eventBus = new EventEmitter();
 
-  constructor(public readonly wire: Wire, private metadata?: Buffer) {
+  constructor(public readonly wire: Wire, private metainfoService: MetaInfoService) {
     super(wire);
   }
 
-  public addMetadata = (metainfo: MetainfoFile) => {
-    this.metadata = bencode.encode(metainfo);
-    this.sendExtendedMessage([MetainfoFlags.have_metadata, this.metadata !== undefined]);
-  };
+  private get metadataBuffer(): Buffer | undefined {
+    return bencode.encode(this.metainfoService.metainfo);
+  }
 
   onHandshake = (infoHash: string, peerId: string, extensions: HandshakeExtensions) => {
     console.log(this.wire.wireName, 'metadata onHandshake', infoHash, peerId, extensions);
@@ -41,10 +40,12 @@ export class MetadataExtension extends Extension {
       return;
     }
 
-    this.sendExtendedMessage([MetainfoFlags.have_metadata, this.metadata !== undefined]);
+    const hasDataFlag = this.metainfoService.metainfo !== undefined ? 0x0 : 0x1;
+
+    this.sendExtendedMessage([MetainfoFlags.have_metadata, hasDataFlag]);
 
     // Broadcast whether we have metadata or not
-    if (!this.metadata) {
+    if (!this.metainfoService) {
       console.log('Requesting metadata from peer');
       this.sendExtendedMessage([MetainfoFlags.fetch]);
     }
@@ -66,7 +67,7 @@ export class MetadataExtension extends Extension {
 
   peerHasMetainfo = (hasMetaInfo: boolean) => {
     // If we have metainfo, dont do anything.
-    if (this.metadata) {
+    if (this.metadataBuffer) {
       return;
     }
 
@@ -82,12 +83,13 @@ export class MetadataExtension extends Extension {
 
   onFetchRequested = () => {
     console.log('metainfo requested from peer');
-    this.sendExtendedMessage([MetainfoFlags.sent_metainfo, this.metadata]);
+    this.sendExtendedMessage([MetainfoFlags.sent_metainfo, this.metadataBuffer]);
   };
 
   onRecievedMetainfo = (metainfoBuffer: Buffer) => {
     console.log('GOT METAINFO!');
     const metainfo = bencode.decode(metainfoBuffer);
+    this.metainfoService.metainfo = metainfo;
 
     console.log('Recieved metainfo:', metainfo.infohash, metainfo.info['piece length']);
     this.eventBus.emit(MetadataExtensionEvents.ReceivedMetainfo, metainfoBuffer);

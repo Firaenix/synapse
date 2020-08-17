@@ -1,4 +1,6 @@
+import { SupportedSignatureAlgorithms } from '../services/interfaces/ISigningAlgorithm';
 import { Metainfo } from './Metainfo';
+
 export interface MetainfoFile {
   info: Metainfo;
   infohash: Buffer;
@@ -7,7 +9,7 @@ export interface MetainfoFile {
 export interface SignedMetainfoFile extends MetainfoFile {
   infosig: Buffer;
   ['pub key']: Buffer;
-  ['infosig algo']: 'ed25519';
+  ['infosig algo']: SupportedSignatureAlgorithms;
 }
 
 export function isSignedMetainfo(x: MetainfoFile | SignedMetainfoFile): x is SignedMetainfoFile {

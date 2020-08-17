@@ -32,6 +32,12 @@
 
 - [ ] Multiple Peer handling
 
+- [x] Metadata discovery
+
+- [ ] Become seeder after Metadata discovery
+
+- [ ] Select desired files, not just all files in torrent (Desired Bitfield vs Have Bitfield ?)
+
 - [x] WebRTC
 
 - [x] TCP
@@ -50,7 +56,7 @@
 
 - [ ] Merkel Tree for file pieces hash
 
-- [ ] Nice API for accessing torrents on the fly Torrent.stream, yield Torrent.nextPiece()
+- [x] Nice API for accessing torrents on the fly Torrent.stream, yield Torrent.nextPiece()
 
 ### Thoughts:
 

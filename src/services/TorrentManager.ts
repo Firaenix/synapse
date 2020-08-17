@@ -4,17 +4,17 @@ import stream from 'stream';
 import { inject, injectable } from 'tsyringe';
 
 import { Metainfo } from '../models/Metainfo';
-import { isSignedMetainfo, MetainfoFile } from '../models/MetainfoFile';
+import { MetainfoFile } from '../models/MetainfoFile';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
+import { ITorrentDiscovery } from './interfaces/ITorrentDiscovery';
+import { MetaInfoService } from './MetaInfoService';
 import { PeerManager, PeerManagerEvents } from './PeerManager';
 import { PieceManager } from './PieceManager';
 
 @injectable()
 export class TorrentManager {
   public downloadStream: stream.Readable;
-  public metainfo: MetainfoFile | undefined;
-  public infoIdentifier: Buffer | undefined;
 
   /**
    * if files is undefined, you are a leech, seeders have all the data
@@ -27,6 +27,9 @@ export class TorrentManager {
     @inject('IHashService') private readonly hashService: IHashService,
     private readonly peerManager: PeerManager,
     private readonly pieceManager: PieceManager,
+    private readonly metainfoService: MetaInfoService,
+    @inject('ITorrentDiscovery')
+    private readonly torrentDiscovery: ITorrentDiscovery,
     @inject('ILogger')
     private readonly logger: ILogger
   ) {
@@ -42,18 +45,24 @@ export class TorrentManager {
   }
 
   public addTorrent = (metaInfo: MetainfoFile) => {
-    this.metainfo = metaInfo;
-    this.infoIdentifier = metaInfo.infohash;
+    if (!metaInfo) {
+      throw new Error('Cannot add empty metainfo');
+    }
+    this.metainfoService.metainfo = metaInfo;
 
-    if (isSignedMetainfo(metaInfo)) {
-      this.infoIdentifier = metaInfo.infosig;
+    if (!this.metainfoService.infoIdentifier) {
+      throw new Error('Info identifier cannot be empty');
     }
 
-    this.peerManager.searchByInfoIdentifier(this.infoIdentifier);
+    this.peerManager.searchByInfoIdentifier(this.metainfoService.infoIdentifier);
+  };
+
+  public addTorrentByInfoHash = (infoHash: Buffer) => {
+    this.peerManager.searchByInfoIdentifier(infoHash);
   };
 
   private verifyIsFinishedDownloading = () => {
-    const pieceCount = this.metainfo?.info.pieces.length;
+    const pieceCount = this.metainfoService.pieceCount;
     this.logger.log('Got', this.pieceManager.getPieceCount(), 'pieces /', pieceCount);
 
     if (!pieceCount) {
@@ -75,7 +84,7 @@ export class TorrentManager {
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
     // TODO: Need to Verify Piece
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo || !this.metainfoService.pieceCount) {
       throw new Error('No metainfo? How did we recieve a piece?');
     }
 
@@ -83,7 +92,7 @@ export class TorrentManager {
 
     if (!this.isPieceValid(index, offset, pieceBuf)) {
       this.logger.error('Piece is not valid, ask another peer for it', index, offset, pieceBuf.toString('hex'));
-      await this.peerManager.requestPieceAsync(index, offset, this.metainfo.info.pieces.length);
+      await this.peerManager.requestPieceAsync(index, offset, this.metainfoService.pieceCount);
       return;
     }
 
@@ -94,12 +103,12 @@ export class TorrentManager {
 
   private isPieceValid = (index: number, offset: number, pieceBuf: Buffer): boolean => {
     // TODO: Need to Verify Piece
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo) {
       throw new Error('No metainfo? How did we recieve a piece?');
     }
 
-    const algo = this.metainfo.info['piece hash algo'];
-    const hash = this.metainfo.info.pieces[index];
+    const algo = this.metainfoService.metainfo.info['piece hash algo'];
+    const hash = this.metainfoService.metainfo.info.pieces[index];
     this.logger.log('Checking if piece', index, 'passes', algo, 'check', hash);
 
     const pieceHash = this.hashService.hash(pieceBuf, algo);
@@ -112,7 +121,7 @@ export class TorrentManager {
   };
 
   private onPieceValidated = async (index: number, offset: number, piece: Buffer) => {
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo || !this.metainfoService.pieceCount) {
       throw new Error('Must have metainfo so we can validate a piece');
     }
 
@@ -121,7 +130,7 @@ export class TorrentManager {
     }
 
     // Still need more pieces
-    const totalPieceCount = this.metainfo.info.pieces.length;
+    const totalPieceCount = this.metainfoService.pieceCount;
     if (this.pieceManager.getPieceCount() < totalPieceCount) {
       const pieceIndex = this.chooseNextPieceIndex();
       const peer = this.peerManager.getPeerThatHasPiece(pieceIndex);
@@ -130,7 +139,7 @@ export class TorrentManager {
         throw new Error('No peers have the next piece???');
       }
 
-      await this.requestNextPiece(peer.wire, pieceIndex, this.metainfo.info);
+      await this.requestNextPiece(peer.wire, pieceIndex, this.metainfoService.metainfo.info);
     }
 
     this.logger.log('We have validated the piece', index, offset, piece);
@@ -141,11 +150,11 @@ export class TorrentManager {
   };
 
   private onBitfield = async (wire: Wire, recievedBitfield: Bitfield) => {
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo) {
       throw new Error('Cant recieve bitfield, got no metainfo');
     }
 
-    const pieces = this.metainfo.info.pieces;
+    const pieces = this.metainfoService.metainfo.info.pieces;
 
     this.logger.log(wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
 
@@ -157,7 +166,7 @@ export class TorrentManager {
     }
 
     const pieceIndex = this.chooseNextPieceIndex();
-    this.requestNextPiece(wire, pieceIndex, this.metainfo.info);
+    this.requestNextPiece(wire, pieceIndex, this.metainfoService.metainfo.info);
   };
 
   private requestNextPiece = (wire: Wire, pieceIndex: number, metainfo: Metainfo) =>
@@ -173,10 +182,10 @@ export class TorrentManager {
     });
 
   private chooseNextPieceIndex = (excluding: Array<number> = []): number => {
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo) {
       throw new Error('Cant choose next piece, got no metainfo');
     }
-    const pieces = this.metainfo.info.pieces;
+    const pieces = this.metainfoService.metainfo.info.pieces;
 
     const pieceIndex = pieces.findIndex((_, index) => !this.pieceManager.hasPiece(index) && !excluding.includes(index));
     return pieceIndex;
@@ -185,16 +194,24 @@ export class TorrentManager {
   private onRequest = (wire: Wire, index: number, offset: number, length: number) => {
     this.logger.log(wire.wireName, 'Incoming request ', index, offset, length);
 
-    if (!this.metainfo) {
+    if (!this.metainfoService.metainfo || !this.metainfoService.pieceCount) {
       throw new Error('Cant recieve request, got no metainfo');
     }
 
     if (!this.pieceManager.hasPiece(index)) {
       this.logger.log(wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
-      wire.bitfield(new Bitfield(this.metainfo.info.pieces.length));
+      wire.bitfield(new Bitfield(this.metainfoService.pieceCount));
       return;
     }
 
     wire.piece(index, offset, this.pieceManager.getPiece(index));
   };
+
+  public get metainfo(): MetainfoFile {
+    if (!this.metainfoService.metainfo) {
+      throw new Error('Do not yet have metainfo');
+    }
+
+    return this.metainfoService.metainfo;
+  }
 }

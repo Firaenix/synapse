@@ -1,5 +1,8 @@
-import { MetainfoFile, SignedMetainfoFile, isSignedMetainfo } from '../models/MetainfoFile';
-import { injectable, scoped, Lifecycle } from 'tsyringe';
+import { injectable, Lifecycle, scoped } from 'tsyringe';
+
+import { isSignedMetainfo, MetainfoFile, SignedMetainfoFile } from '../models/MetainfoFile';
+import { SupportedSignatureAlgorithms } from './interfaces/ISigningAlgorithm';
+
 /**
  * Just a wrapper container for storing request level configuration.
  * eg. MetaInfo, InfoHash
@@ -7,18 +10,44 @@ import { injectable, scoped, Lifecycle } from 'tsyringe';
 @injectable()
 @scoped(Lifecycle.ResolutionScoped)
 export class MetaInfoService {
-  public readonly infohash: Buffer;
-  public readonly pieceCount: number;
-  public readonly infosig?: Buffer;
-  public readonly infosigAlgo?: 'ed25519';
+  private _metainfo?: MetainfoFile;
 
-  constructor(public readonly metainfo: MetainfoFile | SignedMetainfoFile, public readonly fileChunks: Array<Buffer>) {
-    this.infohash = metainfo.infohash;
-    this.pieceCount = metainfo.info.pieces.length;
+  constructor(metainfo: MetainfoFile | SignedMetainfoFile | undefined, public fileChunks: Array<Buffer>) {
+    this.metainfo = metainfo;
+  }
 
-    if (isSignedMetainfo(metainfo)) {
-      this.infosig = metainfo.infosig;
-      this.infosigAlgo = metainfo['infosig algo'];
+  public set metainfo(metainfo: MetainfoFile | SignedMetainfoFile | undefined) {
+    this._metainfo = metainfo;
+  }
+
+  public get metainfo() {
+    return this._metainfo;
+  }
+
+  public get infoIdentifier(): Buffer | undefined {
+    return this.infoSig?.sig || this.infoHash;
+  }
+
+  public get infoHash(): Buffer | undefined {
+    return this._metainfo?.infohash;
+  }
+
+  public get infoSig(): { sig: Buffer; algo: SupportedSignatureAlgorithms } | undefined {
+    if (!this._metainfo) {
+      return undefined;
     }
+
+    if (!isSignedMetainfo(this._metainfo)) {
+      return undefined;
+    }
+
+    return {
+      sig: this._metainfo.infosig,
+      algo: this._metainfo['infosig algo']
+    };
+  }
+
+  public get pieceCount(): number | undefined {
+    return this._metainfo?.info.pieces.length;
   }
 }

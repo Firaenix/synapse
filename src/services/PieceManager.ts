@@ -1,7 +1,8 @@
 import Bitfield from 'bitfield';
-import { injectable, inject } from 'tsyringe';
-import { MetaInfoService } from './MetaInfoService';
+import { inject, injectable } from 'tsyringe';
+
 import { IHashService } from './HashService';
+import { MetaInfoService } from './MetaInfoService';
 
 /**
  * Responsible for managing the Bitfield and Piece Buffers.
@@ -55,6 +56,10 @@ export class PieceManager {
   public setPiece = (index: number, pieceBuffer: Buffer) => {
     if (!pieceBuffer) {
       throw new Error('No piece was specified');
+    }
+
+    if (!this.metainfoService.metainfo) {
+      throw new Error('Metainfo must not be undefined so we can set a piece');
     }
 
     this.setHasPiece(index, true);

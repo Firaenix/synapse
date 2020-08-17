@@ -1,5 +1,4 @@
 import Wire from '@firaenix/bittorrent-protocol';
-import bencode from 'bencode';
 import Bitfield from 'bitfield';
 import { EventEmitter } from 'events';
 import { inject, injectable, injectAll } from 'tsyringe';
@@ -24,7 +23,6 @@ export const PeerManagerEvents = {
 export class PeerManager extends EventEmitter {
   private peerId: Buffer;
   private readonly peers: Array<Peer> = [];
-  private infoIdentifier: Buffer | undefined;
 
   constructor(
     @inject('IHashService') private readonly hashService: IHashService,
@@ -46,11 +44,6 @@ export class PeerManager extends EventEmitter {
   }
 
   public searchByInfoIdentifier = (infoIdentifier: Buffer) => {
-    if (this.infoIdentifier) {
-      throw new Error('Already waiting on an info identifier');
-    }
-
-    this.infoIdentifier = infoIdentifier;
     const infoHashHash = this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256);
 
     for (const strategy of this.peerDiscoveryStrategies) {
@@ -105,8 +98,7 @@ export class PeerManager extends EventEmitter {
 
   private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
     console.log('WIRE CONNECTED');
-    const bencodedMeta = bencode.encode(this.metainfoService.metainfo);
-    connectedWire.use((w) => new MetadataExtension(w, bencodedMeta));
+    connectedWire.use((w) => new MetadataExtension(w, this.metainfoService));
 
     const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
 

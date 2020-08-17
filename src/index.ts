@@ -7,8 +7,10 @@ import path from 'path';
 
 import { Client } from './Client';
 import { SignedMetainfoFile } from './models/MetainfoFile';
+import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService } from './services/HashService';
 import { LoglevelLogger } from './services/LogLevelLogger';
+import { MetaInfoService } from './services/MetaInfoService';
 import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
 import { StreamDownloadService } from './services/StreamDownloadService';
@@ -64,19 +66,25 @@ export const streamDownloader = new StreamDownloadService(logger);
   //   nonce++;
   // }, 2000);
 
-  // const seederMetainfo = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, Buffer.from(secretKey), Buffer.from(publicKey));
-  // fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
-  // instance.addTorrent(seederMetainfo, files);
+  const seederMetainfo = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, Buffer.from(secretKey), Buffer.from(publicKey));
+  fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
+  instance.addTorrentByMetainfo(seederMetainfo, files);
+
+  console.log('Seeding');
 
   const metainfobuffer = fs.readFileSync('./mymetainfo.ben');
   const metainfoFile = bencode.decode(metainfobuffer) as SignedMetainfoFile;
 
-  const discoveredMeta = await new TorrentDiscovery([new ClassicNetworkPeerStrategy()], hasher, logger).discoverByInfoSig(metainfoFile.infosig);
+  try {
+    const metainfoService = new MetaInfoService(undefined, []);
+    const discoveredMeta = await new TorrentDiscovery([new ClassicNetworkPeerStrategy()], hasher, metainfoService, logger).discoverByInfoSig(metainfoFile.infosig);
+    logger.warn('discoveredMeta', discoveredMeta);
 
-  logger.warn(discoveredMeta);
-
-  const leechInstance = new Client();
-
-  const torrent = leechInstance.addTorrent(discoveredMeta, undefined);
-  streamDownloader.download(torrent, 'downloads');
+    // const leechInstance = new Client();
+    // const torrent = leechInstance.addTorrentByInfoHash(metainfoFile.infohash);
+    // console.log('Leeching');
+    // streamDownloader.download(torrent, 'downloads');
+  } catch (error) {
+    logger.fatal(error);
+  }
 })();

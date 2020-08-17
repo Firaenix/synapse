@@ -1,8 +1,9 @@
-import { TorrentManager } from './TorrentManager';
+import fs from 'fs';
+import path from 'path';
+
 import { DownloadedFile } from '../models/DiskFile';
 import { ILogger } from './interfaces/ILogger';
-import path from 'path';
-import fs, { PathLike } from 'fs';
+import { TorrentManager } from './TorrentManager';
 
 export class StreamDownloadService {
   constructor(private readonly logger: ILogger) {}

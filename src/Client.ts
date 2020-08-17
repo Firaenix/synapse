@@ -1,22 +1,24 @@
-import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { Extension } from '@firaenix/bittorrent-protocol';
-import { HashService, IHashService } from './services/HashService';
+import { autoInjectable, container, DependencyContainer, inject } from 'tsyringe';
+
 import { DiskFile } from './models/DiskFile';
-import { TorrentManager } from './services/TorrentManager';
-import { container, autoInjectable, inject } from 'tsyringe';
+import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
+import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+import { HashService, IHashService } from './services/HashService';
+import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
+import { ISigningService } from './services/interfaces/ISigningService';
+import { LoglevelLogger } from './services/LogLevelLogger';
+import { MetaInfoService } from './services/MetaInfoService';
+import { PeerManager } from './services/PeerManager';
 import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
 import { WebRTCPeerStrategy } from './services/peerstrategies/WebRTCPeerStrategy';
 import { PieceManager } from './services/PieceManager';
-import { PeerManager } from './services/PeerManager';
-import { chunkBuffer } from './utils/chunkBuffer';
-import { MetaInfoService } from './services/MetaInfoService';
-import { createMetaInfo } from './utils/createMetaInfo';
-import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
-import { ISigningService } from './services/interfaces/ISigningService';
-import { SigningService } from './services/SigningService';
-import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
-import { LoglevelLogger } from './services/LogLevelLogger';
+import { SigningService } from './services/SigningService';
+import { TorrentDiscovery } from './services/TorrentDiscovery';
+import { TorrentManager } from './services/TorrentManager';
+import { chunkBuffer } from './utils/chunkBuffer';
+import { createMetaInfo } from './utils/createMetaInfo';
 
 export interface Settings {
   extensions?: Extension[];
@@ -93,7 +95,25 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrent = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
+  public addTorrentByMetainfo = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
+    const requestContainer = this.registerScopedDependencies(metainfo, files);
+    const torrentManager = requestContainer.resolve(TorrentManager);
+
+    torrentManager.addTorrent(metainfo);
+    this.torrents.push(torrentManager);
+    return torrentManager;
+  };
+
+  public addTorrentByInfoHash = (infoHash: Buffer) => {
+    const requestContainer = this.registerScopedDependencies(undefined, []);
+    const torrentManager = requestContainer.resolve(TorrentManager);
+
+    torrentManager.addTorrentByInfoHash(infoHash);
+    this.torrents.push(torrentManager);
+    return torrentManager;
+  };
+
+  private registerScopedDependencies = (metainfo: MetainfoFile | undefined, files: Array<DiskFile>): DependencyContainer => {
     const requestContainer = container.createChildContainer();
 
     requestContainer.register(PieceManager, {
@@ -104,18 +124,17 @@ export class Client {
       useClass: PeerManager
     });
 
+    requestContainer.register('ITorrentDiscovery', {
+      useClass: TorrentDiscovery
+    });
+
     let fileChunks: Array<Buffer> = [];
-    if (files) {
+    if (files && metainfo !== undefined) {
       fileChunks = files.map((x) => chunkBuffer(x.file, metainfo.info['piece length'])).flat();
     }
 
     requestContainer.registerInstance(MetaInfoService, new MetaInfoService(metainfo, fileChunks));
 
-    const torrentManager = requestContainer.resolve(TorrentManager);
-
-    torrentManager.addTorrent(metainfo);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.torrents.push(torrentManager);
-    return torrentManager;
+    return requestContainer;
   };
 }

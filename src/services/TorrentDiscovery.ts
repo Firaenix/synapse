@@ -1,6 +1,6 @@
 import Wire from '@firaenix/bittorrent-protocol';
 import bencode from 'bencode';
-import { inject, injectAll } from 'tsyringe';
+import { inject, injectAll, Lifecycle, scoped } from 'tsyringe';
 
 import { MetadataExtension, MetadataExtensionEvents } from '../extensions/Metadata';
 import { MetainfoFile } from '../models/MetainfoFile';
@@ -9,12 +9,15 @@ import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
 import { IPeerStrategy, PeerStrategyEvents } from './interfaces/IPeerStrategy';
 import { ITorrentDiscovery } from './interfaces/ITorrentDiscovery';
+import { MetaInfoService } from './MetaInfoService';
 import { Peer } from './Peer';
 
+@scoped(Lifecycle.ResolutionScoped)
 export class TorrentDiscovery implements ITorrentDiscovery {
   constructor(
     @injectAll('IPeerStrategy') private readonly peerStrategies: Array<IPeerStrategy>,
     @inject('IHashService') private readonly hashService: IHashService,
+    private readonly metainfoService: MetaInfoService,
     @inject('ILogger') private readonly logger: ILogger
   ) {}
 
@@ -28,22 +31,22 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
         strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
           console.log('DISCOVERED NEW PEER');
-          const metadataExtension = new MetadataExtension(connectedWire);
+          const metadataExtension = new MetadataExtension(connectedWire, this.metainfoService);
           connectedWire.use(() => metadataExtension);
           const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
           console.log('DISCOVERY PEERID', peerId);
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 
-          metadataExtension.eventBus.on(MetadataExtensionEvents.ReceivedMetainfo, (buf: Buffer) => {
+          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (buf: Buffer) => {
             const metainfo = bencode.decode(buf) as MetainfoFile;
-            for (const peer of peerList) {
-              peer.destroy();
+
+            if (this.metainfoService.metainfo === undefined) {
+              throw new Error('Meta info store was not updated on discover');
             }
 
-            for (const strat of this.peerStrategies) {
-              strat.stopDiscovery(infoHash);
-              strat.removeAllListeners(PeerStrategyEvents.found);
+            if (metainfo.infohash.equals(this.metainfoService.metainfo?.infohash)) {
+              throw new Error('What how do');
             }
 
             resolve(metainfo);
@@ -62,24 +65,23 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
         strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
           console.log('DISCOVERED NEW PEER');
-          const metadataExtension = new MetadataExtension(connectedWire);
+          const metadataExtension = new MetadataExtension(connectedWire, this.metainfoService);
           connectedWire.use(() => metadataExtension);
           const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
           console.log('DISCOVERY PEERID', peerId);
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 
-          metadataExtension.eventBus.on(MetadataExtensionEvents.ReceivedMetainfo, (buf: Buffer) => {
+          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (buf: Buffer) => {
             const metainfo = bencode.decode(buf) as MetainfoFile;
-            for (const peer of peerList) {
-              peer.destroy();
+
+            if (this.metainfoService.metainfo === undefined) {
+              throw new Error('Meta info store was not updated on discover');
             }
 
-            for (const strat of this.peerStrategies) {
-              strat.stopDiscovery(infoSigHash);
-              strat.removeAllListeners(PeerStrategyEvents.found);
+            if (metainfo.infohash.equals(this.metainfoService.metainfo?.infohash)) {
+              throw new Error('What how do');
             }
-
             resolve(metainfo);
           });
         });
