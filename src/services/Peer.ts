@@ -10,7 +10,8 @@ export const PeerEvents = {
   got_piece: Symbol('on:piece'),
   got_bitfield: Symbol('on:bitfield'),
   got_request: Symbol('on:request'),
-  error: Symbol('error')
+  error: Symbol('error'),
+  close: Symbol('close')
 };
 
 export class Peer extends EventEmitter {
@@ -34,6 +35,8 @@ export class Peer extends EventEmitter {
     // 2. On recieved Extended Handshake (normal handshake follows up with extended handshake), send Bitfield
     this.wire.on('extended', this.onExtended);
 
+    this.wire.on('close', this.onWireClosed);
+
     this.wire.setKeepAlive(true);
 
     // 1. Send Handshake
@@ -42,6 +45,10 @@ export class Peer extends EventEmitter {
 
   private onPiece = (index: number, offset: number, pieceBuf: Buffer) => {
     this.emit(PeerEvents.got_piece, index, offset, pieceBuf);
+  };
+
+  private onWireClosed = () => {
+    this.emit(PeerEvents.close, this);
   };
 
   private onError = (...args: unknown[]) => {

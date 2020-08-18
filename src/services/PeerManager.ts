@@ -117,7 +117,12 @@ export class PeerManager extends EventEmitter {
       cb(this.pieceManager.getBitfield());
     });
 
-    this.peers.push(peer);
+    const peerIndex = this.peers.push(peer);
+
+    peer.on(PeerEvents.close, () => {
+      this.peers.splice(peerIndex, 1);
+    });
+
     this.logger.log(this.peers.length);
   };
 
