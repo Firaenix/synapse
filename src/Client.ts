@@ -1,10 +1,12 @@
-import { Extension } from '@firaenix/bittorrent-protocol';
+import Wire, { Extension } from '@firaenix/bittorrent-protocol';
 import { autoInjectable, container, DependencyContainer, inject } from 'tsyringe';
 
+import { MetadataExtension } from './extensions/Metadata';
 import { DiskFile } from './models/DiskFile';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService, IHashService } from './services/HashService';
+import { ILogger } from './services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { LoglevelLogger } from './services/LogLevelLogger';
@@ -30,10 +32,6 @@ const defaultSettings: Settings = {
 };
 
 const registerDependencies = () => {
-  container.register('ILogger', {
-    useClass: LoglevelLogger
-  });
-
   container.register('IHashService', {
     useClass: HashService
   });
@@ -76,14 +74,14 @@ export class Client {
   public async generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer) {
     const metainfo = createMetaInfo(diskFiles, torrentName, hashalgo);
 
-    if (privateKeyBuffer) {
+    if (privateKeyBuffer && publicKeyBuffer) {
       const signature = await this.signingService?.sign(metainfo.infohash, SupportedSignatureAlgorithms.ed25519, privateKeyBuffer, publicKeyBuffer);
 
       return {
         ...metainfo,
         infosig: signature,
         'infosig algo': signature ? SupportedSignatureAlgorithms.ed25519 : undefined,
-        'pub key': Buffer.from('should be pub key')
+        'pub key': Buffer.from(publicKeyBuffer)
       } as SignedMetainfoFile;
     }
 
@@ -97,6 +95,44 @@ export class Client {
    */
   public addTorrentByMetainfo = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
     const requestContainer = this.registerScopedDependencies(metainfo, files);
+    requestContainer.register('ILogger', {
+      useFactory: (ioc) => new LoglevelLogger('seed')
+    });
+
+    requestContainer.register('IExtension', {
+      useFactory: (ioc) => (w: Wire) =>
+        new MetadataExtension(
+          w,
+          ioc.resolve(MetaInfoService).infoIdentifier!,
+          ioc.resolve(MetaInfoService),
+          ioc.resolve<IHashService>('IHashService'),
+          ioc.resolve<ISigningService>('ISigningService'),
+          ioc.resolve<ILogger>('ILogger')
+        )
+    });
+
+    const torrentManager = requestContainer.resolve(TorrentManager);
+
+    torrentManager.addTorrent(metainfo);
+
+    this.torrents.push(torrentManager);
+    return torrentManager;
+  };
+
+  public addTorrentByInfoHash = async (infoHash: Buffer) => {
+    const requestContainer = this.registerScopedDependencies(undefined, []);
+    requestContainer.register('ILogger', {
+      useFactory: (ioc) => new LoglevelLogger('leech')
+    });
+
+    requestContainer.register('IExtension', {
+      useFactory: (ioc) => (w: Wire) =>
+        new MetadataExtension(w, infoHash, ioc.resolve(MetaInfoService), ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
+    });
+
+    const discovery = requestContainer.resolve<TorrentDiscovery>('ITorrentDiscovery');
+    const metainfo = await discovery.discoverByInfoHash(infoHash);
+
     const torrentManager = requestContainer.resolve(TorrentManager);
 
     torrentManager.addTorrent(metainfo);
@@ -104,11 +140,23 @@ export class Client {
     return torrentManager;
   };
 
-  public addTorrentByInfoHash = (infoHash: Buffer) => {
+  public addTorrentByInfoSig = async (infoSig: Buffer) => {
     const requestContainer = this.registerScopedDependencies(undefined, []);
+    requestContainer.register('ILogger', {
+      useFactory: (ioc) => new LoglevelLogger('leech')
+    });
+
+    requestContainer.register('IExtension', {
+      useFactory: (ioc) => (w: Wire) =>
+        new MetadataExtension(w, infoSig, ioc.resolve(MetaInfoService), ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
+    });
+
+    const discovery = requestContainer.resolve<TorrentDiscovery>('ITorrentDiscovery');
+    const metainfo = await discovery.discoverByInfoSig(infoSig);
+
     const torrentManager = requestContainer.resolve(TorrentManager);
 
-    torrentManager.addTorrentByInfoHash(infoHash);
+    torrentManager.addTorrent(metainfo);
     this.torrents.push(torrentManager);
     return torrentManager;
   };

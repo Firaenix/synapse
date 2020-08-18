@@ -1,10 +1,9 @@
-import Wire from '@firaenix/bittorrent-protocol';
+import Wire, { IExtension } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { EventEmitter } from 'events';
 import { inject, injectable, injectAll } from 'tsyringe';
 import { v4 as uuid } from 'uuid';
 
-import { MetadataExtension } from '../extensions/Metadata';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
@@ -29,6 +28,9 @@ export class PeerManager extends EventEmitter {
     @injectAll('IPeerStrategy') private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
     private readonly pieceManager: PieceManager,
     private readonly metainfoService: MetaInfoService,
+
+    @injectAll('IExtension')
+    private readonly extensions: Array<(w: Wire) => IExtension>,
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super();
@@ -97,8 +99,9 @@ export class PeerManager extends EventEmitter {
     });
 
   private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
-    console.log('WIRE CONNECTED');
-    connectedWire.use((w) => new MetadataExtension(w, this.metainfoService));
+    for (const extension of this.extensions) {
+      connectedWire.use(extension);
+    }
 
     const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
 

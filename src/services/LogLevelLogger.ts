@@ -1,35 +1,43 @@
 import chalk from 'chalk';
 import LogLevel from 'loglevel';
+import { singleton } from 'tsyringe';
 
 import { ILogger } from './interfaces/ILogger';
 
-const chalkColourFactory = (originalMethodFactory: LogLevel.MethodFactory) => (methodName, logLevel, loggerName) => {
+const colouredLogger = (methodName: string, logLevel: LogLevel.LogLevelNumbers, loggerName: string) => {
   const colours: { [k: string]: (...msg: string[]) => string } = {
     ['trace']: chalk.green,
     ['debug']: chalk.bgBlue,
     ['info']: chalk.white,
-    ['warn']: chalk.red,
+    ['warn']: chalk.hex('#ff8d33'),
     ['error']: chalk.bgRed
   };
 
-  const rawMethod = originalMethodFactory(methodName, logLevel, loggerName);
-  const logLevelNames = ['TRACE', 'DEBUG', 'INFO ', 'WARN ', 'ERROR'];
+  const rawMethod = LogLevel.methodFactory(methodName, logLevel, loggerName);
   const messageColor = colours[methodName];
 
-  return function (message) {
-    rawMethod(chalk.cyan.underline(loggerName) + ' ' + chalk.bold.magenta(logLevelNames[logLevel]) + ' ' + messageColor(message));
+  return function (message, ...optionalParams: string[]) {
+    rawMethod(`${chalk.cyan.underline(loggerName)} - [${messageColor(methodName.toUpperCase())}] - ${messageColor(message)}`);
   };
 };
 
+const JSONLogger = (extra: any = {}) => (methodName: string, logLevel: LogLevel.LogLevelNumbers, loggerName: string) => {
+  const rawMethod = LogLevel.methodFactory(methodName, logLevel, loggerName);
+
+  return function (message, ...optionalParams) {
+    rawMethod(JSON.stringify({ application: loggerName, msg: message, level: methodName.toUpperCase(), ...extra }));
+  };
+};
+
+@singleton()
 export class LoglevelLogger implements ILogger {
   private readonly _logger: LogLevel.Logger;
 
-  constructor() {
+  constructor(ctx?: string) {
     console.log('Creating logger');
-    this._logger = LogLevel.getLogger('Knot');
-    this._logger.setDefaultLevel('trace');
-    const originalFactory = this._logger.methodFactory;
-    this._logger.methodFactory = chalkColourFactory(originalFactory);
+    this._logger = LogLevel.getLogger(['Knot', ctx].filter((x) => !!x).join(' - '));
+    // this._logger.setDefaultLevel('trace');
+    // this._logger.methodFactory = colouredLogger;
   }
   trace(message?: unknown, ...optionalParams: unknown[]): void {
     this._logger.trace(message, ...optionalParams);
@@ -39,7 +47,7 @@ export class LoglevelLogger implements ILogger {
   }
 
   log(message?: unknown, ...optionalParams: unknown[]): void {
-    this._logger.warn(message, ...optionalParams);
+    this._logger.info(message, ...optionalParams);
   }
   info(message?: unknown, ...optionalParams: unknown[]): void {
     this._logger.info(message, ...optionalParams);

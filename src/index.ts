@@ -9,15 +9,15 @@ import { Client } from './Client';
 import { SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService } from './services/HashService';
+import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { LoglevelLogger } from './services/LogLevelLogger';
-import { MetaInfoService } from './services/MetaInfoService';
-import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
+import { SigningService } from './services/SigningService';
 import { StreamDownloadService } from './services/StreamDownloadService';
-import { TorrentDiscovery } from './services/TorrentDiscovery';
 import recursiveReadDir from './utils/recursiveReadDir';
 
 export const hasher = new HashService();
+export const signingService = new SigningService([new ED25519SuperCopAlgorithm()]);
 export const logger = new LoglevelLogger();
 export const streamDownloader = new StreamDownloadService(logger);
 
@@ -43,9 +43,9 @@ export const streamDownloader = new StreamDownloadService(logger);
   // new TorrentManager(hasher, metainfoFile, files);
 
   const instance = new Client();
-  const { publicKey, secretKey } = await new ED25519SuperCopAlgorithm().generateKeyPair();
+  const { publicKey, secretKey } = await signingService.generateKeyPair(SupportedSignatureAlgorithms.ed25519);
 
-  const sig = new ED25519SuperCopAlgorithm().sign(Buffer.from('text'), Buffer.from(secretKey), Buffer.from(publicKey));
+  const sig = await signingService.sign(Buffer.from('text'), SupportedSignatureAlgorithms.ed25519, Buffer.from(secretKey), Buffer.from(publicKey));
   logger.log('SIG', sig);
 
   // const dht = new DHTService(new ED25519SuperCopAlgorithm());
@@ -70,20 +70,16 @@ export const streamDownloader = new StreamDownloadService(logger);
   fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
   instance.addTorrentByMetainfo(seederMetainfo, files);
 
-  console.log('Seeding');
+  logger.log('Seeding');
 
   const metainfobuffer = fs.readFileSync('./mymetainfo.ben');
   const metainfoFile = bencode.decode(metainfobuffer) as SignedMetainfoFile;
 
   try {
-    const metainfoService = new MetaInfoService(undefined, []);
-    const discoveredMeta = await new TorrentDiscovery([new ClassicNetworkPeerStrategy()], hasher, metainfoService, logger).discoverByInfoSig(metainfoFile.infosig);
-    logger.warn('discoveredMeta', discoveredMeta);
-
-    // const leechInstance = new Client();
-    // const torrent = leechInstance.addTorrentByInfoHash(metainfoFile.infohash);
-    // console.log('Leeching');
-    // streamDownloader.download(torrent, 'downloads');
+    const leechInstance = new Client();
+    const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
+    logger.log('Leeching');
+    streamDownloader.download(torrent, 'downloads');
   } catch (error) {
     logger.fatal(error);
   }

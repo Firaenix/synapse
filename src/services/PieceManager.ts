@@ -11,10 +11,14 @@ import { MetaInfoService } from './MetaInfoService';
  */
 @injectable()
 export class PieceManager {
-  private readonly bitfield: Bitfield;
+  private bitfield: Bitfield;
   private readonly hashChunks: Array<Buffer>;
 
   constructor(private readonly metainfoService: MetaInfoService, @inject('IHashService') private readonly hashService: IHashService) {
+    if (metainfoService.pieceCount === undefined) {
+      throw new Error('metainfoService.pieceCount === undefined');
+    }
+
     this.bitfield = new Bitfield(metainfoService.pieceCount);
     this.hashChunks = metainfoService.fileChunks;
 

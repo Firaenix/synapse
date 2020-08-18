@@ -61,6 +61,10 @@ export class TorrentManager {
     this.peerManager.searchByInfoIdentifier(infoHash);
   };
 
+  public addTorrentByInfoSig = (infoSig: Buffer) => {
+    this.peerManager.searchByInfoIdentifier(infoSig);
+  };
+
   private verifyIsFinishedDownloading = () => {
     const pieceCount = this.metainfoService.pieceCount;
     this.logger.log('Got', this.pieceManager.getPieceCount(), 'pieces /', pieceCount);

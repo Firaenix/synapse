@@ -9,7 +9,6 @@ export class StreamDownloadService {
   constructor(private readonly logger: ILogger) {}
 
   public download = (torrent: TorrentManager, downloadPath: string) => {
-    const metainfoFile = torrent.metainfo;
     const readStream = torrent.downloadStream;
     const bufs: Array<Buffer> = [];
 
@@ -20,6 +19,7 @@ export class StreamDownloadService {
     });
 
     readStream.on('end', async () => {
+      const metainfoFile = torrent.metainfo;
       const fullFiles = Buffer.concat(bufs);
       const downloadedFiles: Array<DownloadedFile> = [];
 
@@ -57,5 +57,7 @@ export class StreamDownloadService {
         await fs.promises.writeFile(filePath, file.file);
       }
     });
+
+    readStream.on('error', this.logger.error);
   };
 }
