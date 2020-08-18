@@ -9,7 +9,7 @@ import { HashService, IHashService } from './services/HashService';
 import { ILogger } from './services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ISigningService } from './services/interfaces/ISigningService';
-import { LoglevelLogger } from './services/LogLevelLogger';
+import { ConsoleLogger } from './services/LogLevelLogger';
 import { MetaInfoService } from './services/MetaInfoService';
 import { PeerManager } from './services/PeerManager';
 import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNetworkPeerStrategy';
@@ -96,7 +96,7 @@ export class Client {
   public addTorrentByMetainfo = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
     const requestContainer = this.registerScopedDependencies(metainfo, files);
     requestContainer.register('ILogger', {
-      useFactory: (ioc) => new LoglevelLogger('seed')
+      useFactory: (ioc) => new ConsoleLogger()
     });
 
     requestContainer.register('IExtension', {
@@ -122,7 +122,7 @@ export class Client {
   public addTorrentByInfoHash = async (infoHash: Buffer) => {
     const requestContainer = this.registerScopedDependencies(undefined, []);
     requestContainer.register('ILogger', {
-      useFactory: (ioc) => new LoglevelLogger('leech')
+      useFactory: (ioc) => new ConsoleLogger()
     });
 
     requestContainer.register('IExtension', {
@@ -143,7 +143,7 @@ export class Client {
   public addTorrentByInfoSig = async (infoSig: Buffer) => {
     const requestContainer = this.registerScopedDependencies(undefined, []);
     requestContainer.register('ILogger', {
-      useFactory: (ioc) => new LoglevelLogger('leech')
+      useFactory: (ioc) => new ConsoleLogger()
     });
 
     requestContainer.register('IExtension', {

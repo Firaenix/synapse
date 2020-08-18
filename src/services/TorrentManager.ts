@@ -87,7 +87,6 @@ export class TorrentManager {
   };
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
-    // TODO: Need to Verify Piece
     if (!this.metainfoService.metainfo || !this.metainfoService.pieceCount) {
       throw new Error('No metainfo? How did we recieve a piece?');
     }

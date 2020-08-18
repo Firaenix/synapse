@@ -39,7 +39,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 
-          metadataExtension.eventBus.on(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: MetainfoFile) => {
+          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: MetainfoFile) => {
             if (this.metainfoService.metainfo === undefined) {
               throw new Error('Meta info store was not updated on discover');
             }
@@ -71,7 +71,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 
-          metadataExtension.eventBus.on(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: SignedMetainfoFile) => {
+          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: SignedMetainfoFile) => {
             if (this.metainfoService.metainfo === undefined) {
               throw new Error('Meta info store was not updated on discover');
             }
