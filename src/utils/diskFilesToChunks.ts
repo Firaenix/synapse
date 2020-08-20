@@ -7,5 +7,10 @@ export const diskFilesToChunks = (files: Array<DiskFile>, size: number) => {
   const hugeBuffer = files.map((x) => x.file).reduce((prev, curr) => Buffer.concat([prev, curr]));
   fileChunks = chunkBuffer(hugeBuffer, size);
 
+  const totalFileLength = files.map((x) => x.file.length).reduce((p, c) => p + c);
+  if (totalFileLength % size !== fileChunks[fileChunks.length - 1].length) {
+    throw new Error('Could not accurately calculate the final piece file length');
+  }
+
   return fileChunks;
 };

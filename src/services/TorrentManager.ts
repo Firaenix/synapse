@@ -131,20 +131,6 @@ export class TorrentManager {
       this.pieceManager.setPiece(index, piece);
     }
 
-    // Still need more pieces
-    const totalPieceCount = this.metainfoService.pieceCount;
-    if (this.pieceManager.getPieceCount() < totalPieceCount) {
-      const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
-      const peer = this.peerManager.getPeerThatHasPiece(pieceIndex);
-
-      if (!peer) {
-        throw new Error('No peers have the next piece???');
-      }
-
-      const piece = await peer.request(pieceIndex, pieceOffset, pieceLength);
-      console.log('onPieceValidated GOT PIECE', piece);
-    }
-
     this.logger.log('We have validated the piece', index, offset, piece);
     if (!this.downloadStream.destroyed) {
       this.downloadStream.push(Buffer.concat([Buffer.from(`${index}:${offset}:`), piece]));
@@ -160,34 +146,16 @@ export class TorrentManager {
     const pieces = this.metainfoService.metainfo.info.pieces;
 
     this.logger.log('Bitfield length', recievedBitfield.buffer.length);
+    const myBitfield = this.pieceManager.getBitfield();
 
-    const missingPieces = peer.getIndexesThatDontExistInGivenBitfield(this.pieceManager.getBitfield(), pieces.length);
+    const missingPieces = peer.getIndexesThatDontExistInGivenBitfield(myBitfield, pieces.length);
     if (missingPieces.length <= 0) {
       peer.setUninterested();
       this.logger.log('Peer has no pieces that we want, uninterested');
       return;
     }
 
-    // TODO: Store a map somewhere to say which peers have the pieces we want - PeerManager?
-
-    const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
-    const pieceBuf = await peer.request(pieceIndex, pieceOffset, pieceLength);
-
-    if (pieceBuf.length !== pieceLength) {
-      throw new Error('pieceBuf.length !== pieceLength');
-    }
-
-    if (!this.isPieceValid(pieceIndex, pieceOffset, pieceBuf)) {
-      this.logger.error('Piece is not valid, ask another peer for it', pieceIndex, pieceOffset, pieceBuf.toString('hex'));
-      throw new Error('PIECE IS NOT VALID');
-    }
-
-    this.logger.log('Piece is valid');
-
-    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
-    this.peerManager.have(pieceIndex);
-    this.peerManager.cancel(pieceIndex, pieceOffset, pieceLength);
-    this.onPieceValidated(pieceIndex, pieceOffset, pieceBuf);
+    this.requestPiecesLoop(peer);
   };
 
   private chooseNextPieceIndex = (excluding: Array<number> = []): [number, number, number] => {
@@ -198,8 +166,15 @@ export class TorrentManager {
     const pieces = this.metainfoService.metainfo.info.pieces;
 
     const pieceIndex = pieces.findIndex((_, index) => !this.pieceManager.hasPiece(index) && !excluding.includes(index));
+    let pieceLength = metainfo.info['piece length'];
 
-    return [pieceIndex, metainfo.info['piece length'] * pieceIndex, metainfo.info['piece length']];
+    // If last piece, calculate what the correct offset is.
+    if (pieceIndex === pieces.length - 1) {
+      const totalfileLength = metainfo.info.files.map((x) => x.length).reduce((p, c) => p + c);
+      pieceLength = totalfileLength % pieceLength;
+    }
+
+    return [pieceIndex, metainfo.info['piece length'] * pieceIndex, pieceLength];
   };
 
   private onRequest = (peer: Peer, index: number, offset: number, length: number) => {
@@ -216,6 +191,48 @@ export class TorrentManager {
     }
 
     peer.sendPiece(index, offset, this.pieceManager.getPiece(index));
+  };
+
+  private requestPiecesLoop = async (peer: Peer) => {
+    try {
+      // TODO: Store a map somewhere to say which peers have the pieces we want - PeerManager?
+      if (this.metainfoService === undefined) {
+        throw new Error('Cannot request pieces if we dont have metainfo');
+      }
+
+      const totalPieceCount = this.metainfoService.pieceCount;
+      if (!totalPieceCount) {
+        throw new Error('How can we not know the total pieceCount?');
+      }
+
+      if (this.pieceManager.getPieceCount() >= totalPieceCount) {
+        this.logger.warn('Done! I think we have all of the pieces!');
+        return;
+      }
+
+      const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
+      const pieceBuf = await peer.request(pieceIndex, pieceOffset, pieceLength);
+
+      if (pieceBuf.length !== pieceLength) {
+        throw new Error('pieceBuf.length !== pieceLength');
+      }
+
+      if (!this.isPieceValid(pieceIndex, pieceOffset, pieceBuf)) {
+        this.logger.error('Piece is not valid, ask another peer for it', pieceIndex, pieceOffset, pieceBuf.toString('hex'));
+        throw new Error('PIECE IS NOT VALID');
+      }
+
+      this.logger.log('Piece is valid');
+
+      // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
+      this.peerManager.have(pieceIndex);
+      this.peerManager.cancel(pieceIndex, pieceOffset, pieceLength);
+      this.onPieceValidated(pieceIndex, pieceOffset, pieceBuf);
+
+      await this.requestPiecesLoop(peer);
+    } catch (error) {
+      this.logger.error(error);
+    }
   };
 
   public get metainfo(): MetainfoFile {

@@ -51,11 +51,18 @@ export class Peer extends TypedEmitter<PeerEmitter> {
 
     this.wire.on('close', this.onWireClosed);
 
+    this.wire.on('have', this.onHave);
+
     this.wire.setKeepAlive(true);
 
     // 1. Send Handshake
     this.wire.handshake(this.infoIdentifier, this.myPeerId);
   }
+
+  private onHave = (index: number) => {
+    console.log('Peer said that they have this piece', index);
+    this.bitfield?.set(index);
+  };
 
   private onPiece = (index: number, offset: number, pieceBuf: Buffer) => {
     this.emit(PeerEvents.got_piece, index, offset, pieceBuf);

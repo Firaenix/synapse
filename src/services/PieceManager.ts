@@ -12,7 +12,6 @@ import { MetaInfoService } from './MetaInfoService';
 @injectable()
 export class PieceManager {
   private bitfield: Bitfield;
-  private readonly fileChunks: Array<Buffer>;
 
   constructor(private readonly metainfoService: MetaInfoService, @inject('IHashService') private readonly hashService: IHashService) {
     if (metainfoService.pieceCount === undefined) {
@@ -20,10 +19,9 @@ export class PieceManager {
     }
 
     this.bitfield = new Bitfield(metainfoService.pieceCount);
-    this.fileChunks = metainfoService.fileChunks;
 
-    for (let i = 0; i <= this.fileChunks.length; i++) {
-      if (!this.fileChunks[i]) {
+    for (let i = 0; i <= metainfoService.fileChunks.length; i++) {
+      if (!this.metainfoService.fileChunks[i]) {
         continue;
       }
 
@@ -35,10 +33,6 @@ export class PieceManager {
     return this.bitfield.get(index);
   };
 
-  private setHasPiece = (index: number, value?: boolean) => {
-    return this.bitfield.set(index, value);
-  };
-
   public getBitfield = () => {
     return this.bitfield;
   };
@@ -48,13 +42,13 @@ export class PieceManager {
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    const pieceBuffer = this.fileChunks[index];
+    const pieceBuffer = this.metainfoService.fileChunks[index];
     if (!pieceBuffer) {
-      this.setHasPiece(index, false);
+      this.bitfield.set(index, false);
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    return this.fileChunks[index];
+    return this.metainfoService.fileChunks[index];
   };
 
   public setPiece = (index: number, pieceBuffer: Buffer) => {
@@ -66,11 +60,11 @@ export class PieceManager {
       throw new Error('Metainfo must not be undefined so we can set a piece');
     }
 
-    this.setHasPiece(index, true);
-    this.fileChunks.splice(index, 0, pieceBuffer);
+    this.bitfield.set(index, true);
+    this.metainfoService.fileChunks.splice(index, 0, pieceBuffer);
   };
 
   public getPieceCount = () => {
-    return this.fileChunks.length;
+    return this.metainfoService.fileChunks.length;
   };
 }
