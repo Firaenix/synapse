@@ -19,8 +19,8 @@ import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519
 import { SigningService } from './services/SigningService';
 import { TorrentDiscovery } from './services/TorrentDiscovery';
 import { TorrentManager } from './services/TorrentManager';
-import { chunkBuffer } from './utils/chunkBuffer';
 import { createMetaInfo } from './utils/createMetaInfo';
+import { diskFilesToChunks } from './utils/diskFilesToChunks';
 
 export interface Settings {
   extensions?: Extension[];
@@ -177,8 +177,8 @@ export class Client {
     });
 
     let fileChunks: Array<Buffer> = [];
-    if (files && metainfo !== undefined) {
-      fileChunks = files.map((x) => chunkBuffer(x.file, metainfo.info['piece length'])).flat();
+    if (metainfo) {
+      fileChunks = diskFilesToChunks(files, metainfo.info['piece length']);
     }
 
     requestContainer.registerInstance(MetaInfoService, new MetaInfoService(metainfo, fileChunks));

@@ -1,14 +1,13 @@
-import Wire from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import stream from 'stream';
 import { inject, injectable } from 'tsyringe';
 
-import { Metainfo } from '../models/Metainfo';
 import { MetainfoFile } from '../models/MetainfoFile';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
 import { ITorrentDiscovery } from './interfaces/ITorrentDiscovery';
 import { MetaInfoService } from './MetaInfoService';
+import { Peer } from './Peer';
 import { PeerManager, PeerManagerEvents } from './PeerManager';
 import { PieceManager } from './PieceManager';
 
@@ -91,17 +90,17 @@ export class TorrentManager {
       throw new Error('No metainfo? How did we recieve a piece?');
     }
 
-    this.logger.log('We got piece', index, offset, pieceBuf);
+    this.logger.log('We got piece', index, offset, pieceBuf.length);
 
-    if (!this.isPieceValid(index, offset, pieceBuf)) {
-      this.logger.error('Piece is not valid, ask another peer for it', index, offset, pieceBuf.toString('hex'));
-      await this.peerManager.requestPieceAsync(index, offset, this.metainfoService.pieceCount);
-      return;
-    }
+    // if (!this.isPieceValid(index, offset, pieceBuf)) {
+    //   this.logger.error('Piece is not valid, ask another peer for it', index, offset, pieceBuf.toString('hex'));
+    //   await this.peerManager.requestPieceAsync(index, offset, this.metainfoService.pieceCount);
+    //   return;
+    // }
 
-    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
-    this.peerManager.have(index);
-    this.onPieceValidated(index, offset, pieceBuf);
+    // // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
+    // this.peerManager.have(index);
+    // this.onPieceValidated(index, offset, pieceBuf);
   };
 
   private isPieceValid = (index: number, offset: number, pieceBuf: Buffer): boolean => {
@@ -135,14 +134,15 @@ export class TorrentManager {
     // Still need more pieces
     const totalPieceCount = this.metainfoService.pieceCount;
     if (this.pieceManager.getPieceCount() < totalPieceCount) {
-      const pieceIndex = this.chooseNextPieceIndex();
+      const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
       const peer = this.peerManager.getPeerThatHasPiece(pieceIndex);
 
       if (!peer) {
         throw new Error('No peers have the next piece???');
       }
 
-      await this.requestNextPiece(peer.wire, pieceIndex, this.metainfoService.metainfo.info);
+      const piece = await peer.request(pieceIndex, pieceOffset, pieceLength);
+      console.log('onPieceValidated GOT PIECE', piece);
     }
 
     this.logger.log('We have validated the piece', index, offset, piece);
@@ -152,62 +152,70 @@ export class TorrentManager {
     this.verifyIsFinishedDownloading();
   };
 
-  private onBitfield = async (wire: Wire, recievedBitfield: Bitfield) => {
+  private onBitfield = async (peer: Peer, recievedBitfield: Bitfield) => {
     if (!this.metainfoService.metainfo) {
       throw new Error('Cant recieve bitfield, got no metainfo');
     }
 
     const pieces = this.metainfoService.metainfo.info.pieces;
 
-    this.logger.log(wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
+    this.logger.log('Bitfield length', recievedBitfield.buffer.length);
 
-    if (pieces.every((_, i) => !wire.peerPieces.get(i))) {
-      // the peer has no pieces, not interested in talking to you...
-      wire.uninterested();
-      this.logger.log(wire.wireName, 'Peer has no pieces, uninterested');
+    const missingPieces = peer.getIndexesThatDontExistInGivenBitfield(this.pieceManager.getBitfield(), pieces.length);
+    if (missingPieces.length <= 0) {
+      peer.setUninterested();
+      this.logger.log('Peer has no pieces that we want, uninterested');
       return;
     }
 
-    const pieceIndex = this.chooseNextPieceIndex();
-    this.requestNextPiece(wire, pieceIndex, this.metainfoService.metainfo.info);
+    // TODO: Store a map somewhere to say which peers have the pieces we want - PeerManager?
+
+    const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
+    const pieceBuf = await peer.request(pieceIndex, pieceOffset, pieceLength);
+
+    if (pieceBuf.length !== pieceLength) {
+      throw new Error('pieceBuf.length !== pieceLength');
+    }
+
+    if (!this.isPieceValid(pieceIndex, pieceOffset, pieceBuf)) {
+      this.logger.error('Piece is not valid, ask another peer for it', pieceIndex, pieceOffset, pieceBuf.toString('hex'));
+      throw new Error('PIECE IS NOT VALID');
+    }
+
+    this.logger.log('Piece is valid');
+
+    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
+    this.peerManager.have(pieceIndex);
+    this.peerManager.cancel(pieceIndex, pieceOffset, pieceLength);
+    this.onPieceValidated(pieceIndex, pieceOffset, pieceBuf);
   };
 
-  private requestNextPiece = (wire: Wire, pieceIndex: number, metainfo: Metainfo) =>
-    new Promise<void>((resolve, reject) => {
-      wire.request(pieceIndex, metainfo['piece length'] * pieceIndex, metainfo['piece length'], (err) => {
-        if (err) {
-          this.logger.error(wire.wireName, 'Error requesting piece, trying again', pieceIndex, err);
-          this.requestNextPiece(wire, pieceIndex, metainfo);
-          return reject(err);
-        }
-        return resolve();
-      });
-    });
-
-  private chooseNextPieceIndex = (excluding: Array<number> = []): number => {
+  private chooseNextPieceIndex = (excluding: Array<number> = []): [number, number, number] => {
     if (!this.metainfoService.metainfo) {
       throw new Error('Cant choose next piece, got no metainfo');
     }
+    const metainfo = this.metainfoService.metainfo;
     const pieces = this.metainfoService.metainfo.info.pieces;
 
     const pieceIndex = pieces.findIndex((_, index) => !this.pieceManager.hasPiece(index) && !excluding.includes(index));
-    return pieceIndex;
+
+    return [pieceIndex, metainfo.info['piece length'] * pieceIndex, metainfo.info['piece length']];
   };
 
-  private onRequest = (wire: Wire, index: number, offset: number, length: number) => {
-    this.logger.log(wire.wireName, 'Incoming request ', index, offset, length);
+  private onRequest = (peer: Peer, index: number, offset: number, length: number) => {
+    this.logger.log('Incoming request ', index, offset, length);
 
     if (!this.metainfoService.metainfo || !this.metainfoService.pieceCount) {
       throw new Error('Cant recieve request, got no metainfo');
     }
 
     if (!this.pieceManager.hasPiece(index)) {
-      this.logger.log(wire.wireName, 'Oh, I dont have any pieces to send, update the bitfield and let them know');
-      wire.bitfield(new Bitfield(this.metainfoService.pieceCount));
+      this.logger.log('Oh, I dont have any pieces to send, let all the peers know');
+      this.peerManager.broadcastBitfield(this.pieceManager.getBitfield());
       return;
     }
 
-    wire.piece(index, offset, this.pieceManager.getPiece(index));
+    peer.sendPiece(index, offset, this.pieceManager.getPiece(index));
   };
 
   public get metainfo(): MetainfoFile {

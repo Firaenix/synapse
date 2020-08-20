@@ -1,30 +1,26 @@
-import { calculatePieceLength } from './calculatePieceLength';
+import bencode from 'bencode';
+
+import { DiskFile } from '../models/DiskFile';
+import { Metainfo } from '../models/Metainfo';
 import { MetainfoFile } from '../models/MetainfoFile';
-import { chunkBuffer } from './chunkBuffer';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { HashService } from '../services/HashService';
-import { Metainfo } from '../models/Metainfo';
-import bencode from 'bencode';
-import { DiskFile } from '../models/DiskFile';
+import { calculatePieceLength } from './calculatePieceLength';
+import { diskFilesToChunks } from './diskFilesToChunks';
 
 export const createMetaInfo = (diskFiles: DiskFile[], torrentName: string, hashalgo: SupportedHashAlgorithms = SupportedHashAlgorithms.sha1): MetainfoFile => {
   const hasher = new HashService();
 
-  const singleBuf = diskFiles.map((x) => x.file).reduce((p, c) => Buffer.from([...p, ...c]));
-  const pieceLength = calculatePieceLength(singleBuf.length);
-
-  let piecesArray: Buffer[] = [];
-  for (const diskFile of diskFiles) {
-    const fileArray = chunkBuffer(diskFile.file, pieceLength);
-    const fileHashPieces = fileArray.map((x) => Buffer.from(hasher.hash(x, hashalgo)));
-    piecesArray = piecesArray.concat(fileHashPieces);
-  }
+  const totalFileLength = diskFiles.map((x) => x.file.length).reduce((p, c) => p + c);
+  const pieceLength = calculatePieceLength(totalFileLength);
+  const chunks = diskFilesToChunks(diskFiles, pieceLength);
+  const pieces = chunks.map((x) => Buffer.from(hasher.hash(x, hashalgo)));
 
   const files = diskFiles.map((x) => ({ length: x.file.length, path: x.path }));
 
   const metaInfo: Metainfo = {
     name: Buffer.from(torrentName),
-    pieces: piecesArray,
+    pieces,
     'piece length': pieceLength,
     'piece hash algo': hashalgo,
     files

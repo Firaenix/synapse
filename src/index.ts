@@ -7,6 +7,7 @@ import path from 'path';
 
 import { Client } from './Client';
 import { SignedMetainfoFile } from './models/MetainfoFile';
+import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService } from './services/HashService';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { LoglevelLogger } from './services/LogLevelLogger';
@@ -65,11 +66,11 @@ export const streamDownloader = new StreamDownloadService(logger);
   //   nonce++;
   // }, 2000);
 
-  // const seederMetainfo = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, Buffer.from(secretKey), Buffer.from(publicKey));
-  // fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
-  // instance.addTorrentByMetainfo(seederMetainfo, files);
+  const seederMetainfo = await instance.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, Buffer.from(secretKey), Buffer.from(publicKey));
+  fs.writeFileSync('./mymetainfo.ben', bencode.encode(seederMetainfo));
+  instance.addTorrentByMetainfo(seederMetainfo, files);
 
-  // logger.log('Seeding');
+  logger.log('Seeding');
 
   const metainfobuffer = fs.readFileSync('./mymetainfo.ben');
   const metainfoFile = bencode.decode(metainfobuffer) as SignedMetainfoFile;

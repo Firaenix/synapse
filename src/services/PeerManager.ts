@@ -1,6 +1,6 @@
 import Wire, { IExtension } from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
-import { EventEmitter } from 'events';
+import { TypedEmitter } from 'tiny-typed-emitter';
 import { inject, injectable, injectAll } from 'tsyringe';
 import { v4 as uuid } from 'uuid';
 
@@ -12,14 +12,20 @@ import { MetaInfoService } from './MetaInfoService';
 import { Peer, PeerEvents } from './Peer';
 import { PieceManager } from './PieceManager';
 
-export const PeerManagerEvents = {
-  got_piece: Symbol('on:piece'),
-  got_bitfield: Symbol('on:bitfield'),
-  got_request: Symbol('on:request')
-};
+export enum PeerManagerEvents {
+  got_piece = 'on:piece',
+  got_bitfield = 'on:bitfield',
+  got_request = 'on:request'
+}
+
+interface PeerEmitter {
+  [PeerManagerEvents.got_piece]: (index: number, offset: number, pieceBuf: Buffer) => void;
+  [PeerManagerEvents.got_bitfield]: (peer: Peer, recievedBitfield: Bitfield) => void;
+  [PeerManagerEvents.got_request]: (peer: Peer, index: number, offset: number, length: number) => void;
+}
 
 @injectable()
-export class PeerManager extends EventEmitter {
+export class PeerManager extends TypedEmitter<PeerEmitter> {
   private peerId: Buffer;
   private readonly peers: Array<Peer> = [];
 
@@ -58,13 +64,25 @@ export class PeerManager extends EventEmitter {
    */
   public setUninterested = () => {
     for (const peer of this.peers) {
-      peer.wire.uninterested();
+      peer.setUninterested();
     }
   };
 
   public have = (index: number) => {
     for (const peer of this.peers) {
-      peer.wire.have(index);
+      peer.have(index);
+    }
+  };
+
+  public cancel = (index: number, offset: number, length: number) => {
+    for (const peer of this.peers) {
+      peer.cancel(index, offset, length);
+    }
+  };
+
+  public broadcastBitfield = (bitfield: Bitfield) => {
+    for (const peer of this.peers) {
+      peer.sendBitfield(bitfield);
     }
   };
 
@@ -79,24 +97,17 @@ export class PeerManager extends EventEmitter {
     return undefined;
   };
 
-  public requestPieceAsync = (index: number, offset: number, length: number) =>
-    new Promise<void>((resolve, reject) => {
-      // Smartly find a peer that does have the piece we need
-      this.logger.warn('NEED TO FIND SMARTER WAY OF REQUESTING PIECES!');
-      const peer = this.peers.find((x) => x.bitfield?.get(index) !== undefined);
+  public requestPieceAsync = async (index: number, offset: number, length: number) => {
+    // Smartly find a peer that does have the piece we need
+    this.logger.warn('NEED TO FIND SMARTER WAY OF REQUESTING PIECES!');
+    const peer = this.peers.find((x) => x.bitfield?.get(index) !== undefined);
 
-      if (!peer) {
-        return reject(new Error("Can't find a peer with that piece"));
-      }
+    if (!peer) {
+      throw new Error("Can't find a peer with that piece");
+    }
 
-      peer.wire.request(index, offset, length, (err) => {
-        if (err !== undefined) {
-          return reject(err);
-        }
-
-        return resolve();
-      });
-    });
+    await peer.request(index, offset, length);
+  };
 
   private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
     for (const extension of this.extensions) {
@@ -110,8 +121,8 @@ export class PeerManager extends EventEmitter {
 
   public addPeer = (peer: Peer) => {
     peer.on(PeerEvents.got_piece, this.onPiece);
-    peer.on(PeerEvents.got_bitfield, this.onBitfield);
-    peer.on(PeerEvents.got_request, this.onRequest);
+    peer.on(PeerEvents.got_bitfield, this.onBitfield(peer));
+    peer.on(PeerEvents.got_request, this.onRequest(peer));
 
     peer.on(PeerEvents.need_bitfield, (cb: (bitfield: Bitfield) => void) => {
       cb(this.pieceManager.getBitfield());
@@ -127,42 +138,15 @@ export class PeerManager extends EventEmitter {
   };
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {
-    this.logger.log('Leecher got piece', index, offset, pieceBuf);
-
     this.emit(PeerManagerEvents.got_piece, index, offset, pieceBuf);
-
-    // TODO: Need to Verify Piece
-
-    // const algo = this.metainfo.info['piece hash algo'];
-    // const hash = this.metainfo.info.pieces[index];
-    // this.logger.log(this.wire.wireName, ': Checking if piece', index, 'passes', algo, 'check', hash);
-
-    // const pieceHash = hasher.hash(pieceBuf, algo);
-    // this.logger.log(this.wire.wireName, 'Does piece match hash?', pieceHash.equals(hash));
-
-    // // Checksum failed - re-request piece
-    // if (!pieceHash.equals(hash)) {
-    //   this.wire.request(index, offset, this.metainfo.info['piece length'], (err) => {
-    //     if (err) {
-    //       this.logger.error(this.wire.wireName, 'Error requesting piece again', index, err);
-    //       this.onErrorCallback?.(err);
-    //     }
-    //   });
-    //   return;
-    // }
-
-    // Piece we recieved is valid, broadcast that I have the piece to other peers, add to downlo
-    for (const peer of this.peers) {
-      peer.wire.have(index);
-    }
   };
 
-  private onBitfield = (wire: Wire, recievedBitfield: Bitfield) => {
-    this.emit(PeerManagerEvents.got_bitfield, wire, recievedBitfield);
+  private onBitfield = (peer: Peer) => (recievedBitfield: Bitfield) => {
+    this.emit(PeerManagerEvents.got_bitfield, peer, recievedBitfield);
   };
 
-  private onRequest = (wire: Wire, index: number, offset: number, length: number) => {
-    this.logger.log('PeerManager on request', wire.wireName, index, offset, length);
-    this.emit(PeerManagerEvents.got_request, wire, index, offset, length);
+  private onRequest = (peer: Peer) => (index: number, offset: number, length: number) => {
+    this.logger.log('PeerManager on request', index, offset, length);
+    this.emit(PeerManagerEvents.got_request, peer, index, offset, length);
   };
 }

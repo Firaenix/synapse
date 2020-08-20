@@ -12,7 +12,7 @@ import { MetaInfoService } from './MetaInfoService';
 @injectable()
 export class PieceManager {
   private bitfield: Bitfield;
-  private readonly hashChunks: Array<Buffer>;
+  private readonly fileChunks: Array<Buffer>;
 
   constructor(private readonly metainfoService: MetaInfoService, @inject('IHashService') private readonly hashService: IHashService) {
     if (metainfoService.pieceCount === undefined) {
@@ -20,10 +20,10 @@ export class PieceManager {
     }
 
     this.bitfield = new Bitfield(metainfoService.pieceCount);
-    this.hashChunks = metainfoService.fileChunks;
+    this.fileChunks = metainfoService.fileChunks;
 
-    for (let i = 0; i <= this.hashChunks.length; i++) {
-      if (!this.hashChunks[i]) {
+    for (let i = 0; i <= this.fileChunks.length; i++) {
+      if (!this.fileChunks[i]) {
         continue;
       }
 
@@ -48,13 +48,13 @@ export class PieceManager {
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    const pieceBuffer = this.hashChunks[index];
+    const pieceBuffer = this.fileChunks[index];
     if (!pieceBuffer) {
       this.setHasPiece(index, false);
       throw new Error(`I dont have the piece you want: ${index}`);
     }
 
-    return this.hashChunks[index];
+    return this.fileChunks[index];
   };
 
   public setPiece = (index: number, pieceBuffer: Buffer) => {
@@ -67,10 +67,10 @@ export class PieceManager {
     }
 
     this.setHasPiece(index, true);
-    this.hashChunks.splice(index, 0, this.hashService.hash(pieceBuffer, this.metainfoService.metainfo.info['piece hash algo']));
+    this.fileChunks.splice(index, 0, pieceBuffer);
   };
 
   public getPieceCount = () => {
-    return this.hashChunks.length;
+    return this.fileChunks.length;
   };
 }
