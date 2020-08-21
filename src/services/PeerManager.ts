@@ -41,7 +41,7 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
   ) {
     super();
     this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1));
-    console.log('PEER MANAGER PEERID', this.peerId);
+    this.logger.log('PEER MANAGER PEERID', this.peerId);
 
     for (const strategy of peerDiscoveryStrategies) {
       strategy.on(PeerStrategyEvents.found, this.onWireConnected);

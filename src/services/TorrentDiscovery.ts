@@ -31,11 +31,11 @@ export class TorrentDiscovery implements ITorrentDiscovery {
         strat.startDiscovery(infoHashHash);
 
         strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
-          console.log('DISCOVERED NEW PEER');
+          this.logger.log('DISCOVERED NEW PEER');
           const metadataExtension = new MetadataExtension(connectedWire, infoHash, this.metainfoService, this.hashService, this.signingService, this.logger);
           connectedWire.use(() => metadataExtension);
           const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
-          console.log('DISCOVERY PEERID', peerId);
+          this.logger.log('DISCOVERY PEERID', peerId);
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 
@@ -63,11 +63,11 @@ export class TorrentDiscovery implements ITorrentDiscovery {
         strat.startDiscovery(infoSigHash);
 
         strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
-          console.log('DISCOVERED NEW PEER');
+          this.logger.log('DISCOVERED NEW PEER');
           const metadataExtension = new MetadataExtension(connectedWire, infoSig, this.metainfoService, this.hashService, this.signingService, this.logger);
           connectedWire.use(() => metadataExtension as IExtension);
           const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
-          console.log('DISCOVERY PEERID', peerId);
+          this.logger.log('DISCOVERY PEERID', peerId);
 
           peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
 

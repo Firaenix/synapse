@@ -164,9 +164,7 @@ export class Client {
   private registerScopedDependencies = (metainfo: MetainfoFile | undefined, files: Array<DiskFile>): DependencyContainer => {
     const requestContainer = container.createChildContainer();
 
-    requestContainer.register(PieceManager, {
-      useClass: PieceManager
-    });
+    requestContainer.registerSingleton(PieceManager);
 
     requestContainer.register(PeerManager, {
       useClass: PeerManager

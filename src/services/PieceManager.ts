@@ -1,7 +1,7 @@
 import Bitfield from 'bitfield';
 import { inject, injectable } from 'tsyringe';
 
-import { IHashService } from './HashService';
+import { ILogger } from './interfaces/ILogger';
 import { MetaInfoService } from './MetaInfoService';
 
 /**
@@ -13,7 +13,9 @@ import { MetaInfoService } from './MetaInfoService';
 export class PieceManager {
   private bitfield: Bitfield;
 
-  constructor(private readonly metainfoService: MetaInfoService, @inject('IHashService') private readonly hashService: IHashService) {
+  constructor(private readonly metainfoService: MetaInfoService, @inject('ILogger') private readonly logger: ILogger) {
+    logger.info('PieceManager being created');
+
     if (metainfoService.pieceCount === undefined) {
       throw new Error('metainfoService.pieceCount === undefined');
     }
