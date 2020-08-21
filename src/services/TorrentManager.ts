@@ -1,6 +1,7 @@
 import Bitfield from 'bitfield';
 import stream from 'stream';
 import { inject, injectable } from 'tsyringe';
+import { isError } from 'util';
 
 import { MetainfoFile } from '../models/MetainfoFile';
 import { IHashService } from './HashService';
@@ -231,6 +232,13 @@ export class TorrentManager {
 
       await this.requestPiecesLoop(peer);
     } catch (error) {
+      if (isError(error)) {
+        if (error.message === 'request was cancelled') {
+          this.logger.info('Request was cancelled.');
+          return;
+        }
+      }
+
       this.logger.error(error);
     }
   };

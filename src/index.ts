@@ -47,24 +47,6 @@ export const streamDownloader = new StreamDownloadService(logger);
   const sig = await signingService.sign(Buffer.from('text'), SupportedSignatureAlgorithms.ed25519, Buffer.from(secretKey), Buffer.from(publicKey));
   logger.log('SIG', sig);
 
-  // const dht = new DHTService(new ED25519SuperCopAlgorithm());
-
-  // const key = await dht.publish({ publicKey, secretKey }, Buffer.alloc(200).fill('whatever'), 0);
-  // const value = await dht.get(key);
-
-  // logger.log('KV', key.toString('hex'), value.toString());
-
-  // dht.subscribe(key, 500, (data) => {
-  //   logger.log('NEW DATA!', data);
-  // });
-
-  // let nonce = 1;
-  // setInterval(async () => {
-  //   const newKey = await dht.publish({ publicKey, secretKey }, Buffer.concat([Buffer.from([nonce]), Buffer.from('GIMME DAT NEW SHIET')]), nonce);
-  //   logger.log('UPDATED KEY?', newKey.toString(), key.toString());
-  //   nonce++;
-  // }, 2000);
-
   if (process.env.REGEN) {
     const seederMetainfo = await instance.generateMetaInfo(
       files,
@@ -85,12 +67,14 @@ export const streamDownloader = new StreamDownloadService(logger);
     logger.log('Seeding');
   }
 
-  try {
-    const leechInstance = new Client();
-    const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
-    logger.log('Leeching');
-    streamDownloader.download(torrent, 'downloads');
-  } catch (error) {
-    logger.fatal(error);
+  if (process.env.LEECHING) {
+    try {
+      const leechInstance = new Client();
+      const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
+      logger.log('Leeching');
+      streamDownloader.download(torrent, 'downloads');
+    } catch (error) {
+      logger.fatal(error);
+    }
   }
 })();
