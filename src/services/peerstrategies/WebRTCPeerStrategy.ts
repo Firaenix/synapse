@@ -1,17 +1,23 @@
 import Wire from '@firaenix/bittorrent-protocol';
-import { EventEmitter } from 'events';
 import hyperswarm from 'hyperswarm-web';
 import { Duplex } from 'stream';
+import { TypedEmitter } from 'tiny-typed-emitter';
+import { inject, singleton } from 'tsyringe';
+import { v4 as uuid } from 'uuid';
 
 import { isServer } from '../../utils/isServer';
+import { ILogger } from '../interfaces/ILogger';
 import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 
-export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
+@singleton()
+export class WebRTCPeerStrategy extends TypedEmitter<PeerStrategyEvents> implements IPeerStrategy {
   private readonly swarm: any;
   public name = 'WebRTCPeerStrategy';
+  private id = uuid();
 
-  constructor() {
+  constructor(@inject('ILogger') private readonly logger: ILogger) {
     super();
+    logger.info('Creating WebRTCPeerStrategy', this.id);
     this.swarm = hyperswarm({
       // If you omit this, it'll try to connect to 'wss://hyperswarm.mauve.moe'
       // It will also attempt to connect to a local proxy on `ws://localhost:4977`
@@ -26,6 +32,8 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
         wrtc: isServer() ? require('wrtc') : undefined
       }
     });
+
+    // this.swarm.listen();
   }
 
   public startDiscovery = (infoIdentifier: Buffer) => {
@@ -35,7 +43,7 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
     });
 
     this.swarm.on('updated', ({ key }) => {
-      this.emit(PeerStrategyEvents.got_update, key);
+      this.emit('got_update', key);
     });
 
     this.swarm.on('connection', (socket: Duplex, details: unknown) => {
@@ -43,11 +51,12 @@ export class WebRTCPeerStrategy extends EventEmitter implements IPeerStrategy {
       // you can now use the socket as a stream, eg:
       // process.stdin.pipe(socket).pipe(process.stdout)
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, wire, infoIdentifier);
+      this.emit('found', wire, infoIdentifier);
     });
   };
 
   public stopDiscovery = (infoHash: Buffer) => {
     this.swarm.leave(infoHash);
+    this.logger.info('Leaving channel', infoHash, this.id);
   };
 }

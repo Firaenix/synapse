@@ -1,15 +1,14 @@
-import { EventEmitter } from 'events';
 import BittorrentDHT, { DHT } from 'bittorrent-dht';
-import { ED25519SuperCopAlgorithm } from './signaturealgorithms/ED25519SuperCopAlgorithm';
-import { KeyPair } from './interfaces/ISigningAlgorithm';
-import { ILogger } from './interfaces/ILogger';
 import { inject } from 'tsyringe';
 
-export class DHTService extends EventEmitter {
+import { ILogger } from './interfaces/ILogger';
+import { KeyPair } from './interfaces/ISigningAlgorithm';
+import { ED25519SuperCopAlgorithm } from './signaturealgorithms/ED25519SuperCopAlgorithm';
+
+export class DHTService {
   private readonly dht: DHT;
 
   constructor(private readonly ed25519algo: ED25519SuperCopAlgorithm, @inject('ILogger') private readonly logger: ILogger) {
-    super();
     this.dht = new BittorrentDHT({
       verify: (sig, msg, pubkey) => {
         return this.ed25519algo.verify(msg, sig, pubkey);

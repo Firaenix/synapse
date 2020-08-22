@@ -30,6 +30,7 @@ describe('Seeder/Leecher Client Integration Tests', () => {
       }
 
       expect(pieces).toEqual(metainfo.info.pieces.length);
+
       done();
     } catch (error) {
       done(error);

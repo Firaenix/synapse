@@ -1,20 +1,27 @@
 import Wire from '@firaenix/bittorrent-protocol';
-import { EventEmitter } from 'events';
 import hyperswarm from 'hyperswarm';
+import { TypedEmitter } from 'tiny-typed-emitter';
+import { inject, singleton } from 'tsyringe';
 import { v4 as uuid } from 'uuid';
 
+import { ILogger } from '../interfaces/ILogger';
 import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 
-export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStrategy {
+@singleton()
+export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents> implements IPeerStrategy {
   private readonly swarm: hyperswarm;
   public name = 'ClassicNetworkPeerStrategy';
 
-  constructor() {
+  private id = uuid();
+
+  constructor(@inject('ILogger') private readonly logger: ILogger) {
     super();
+    logger.info('Creating ClassicNetworkPeerStrategy', this.id);
     this.swarm = hyperswarm();
   }
   public stopDiscovery = (infoHash: Buffer) => {
     this.swarm.leave(infoHash);
+    this.logger.info('Leaving channel', infoHash, this.id);
   };
 
   public startDiscovery = (infoHash: Buffer) => {
@@ -24,13 +31,13 @@ export class ClassicNetworkPeerStrategy extends EventEmitter implements IPeerStr
     });
 
     this.swarm.on('updated', ({ key }) => {
-      this.emit(PeerStrategyEvents.got_update, key);
+      this.emit('got_update', key);
     });
 
     this.swarm.on('connection', (socket, details) => {
       const wire = new Wire(uuid());
       wire.pipe(socket).pipe(wire);
-      this.emit(PeerStrategyEvents.found, wire, infoHash);
+      this.emit('found', wire, infoHash);
     });
   };
 }

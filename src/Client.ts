@@ -1,6 +1,7 @@
 import Wire, { Extension } from '@firaenix/bittorrent-protocol';
-import { autoInjectable, container, DependencyContainer, inject } from 'tsyringe';
+import { autoInjectable, container, DependencyContainer, inject, Lifecycle } from 'tsyringe';
 
+import { BitcoinExtension } from './extensions/Bitcoin';
 import { MetadataExtension } from './extensions/Metadata';
 import { DiskFile } from './models/DiskFile';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
@@ -16,6 +17,7 @@ import { ClassicNetworkPeerStrategy } from './services/peerstrategies/ClassicNet
 import { WebRTCPeerStrategy } from './services/peerstrategies/WebRTCPeerStrategy';
 import { PieceManager } from './services/PieceManager';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
+import { SECP256K1SignatureAlgorithm } from './services/signaturealgorithms/SECP256K1SignatureAlgorithm';
 import { SigningService } from './services/SigningService';
 import { TorrentDiscovery } from './services/TorrentDiscovery';
 import { TorrentManager } from './services/TorrentManager';
@@ -48,13 +50,16 @@ const registerDependencies = () => {
     useClass: ED25519SuperCopAlgorithm
   });
 
-  container.register('IPeerStrategy', {
-    useClass: ClassicNetworkPeerStrategy
+  container.register('ISigningAlgorithm', {
+    useClass: SECP256K1SignatureAlgorithm
   });
 
-  container.register('IPeerStrategy', {
-    useClass: WebRTCPeerStrategy
+  container.register(SECP256K1SignatureAlgorithm, {
+    useClass: SECP256K1SignatureAlgorithm
   });
+
+  container.register('IPeerStrategy', ClassicNetworkPeerStrategy, { lifecycle: Lifecycle.ContainerScoped });
+  container.register('IPeerStrategy', WebRTCPeerStrategy, { lifecycle: Lifecycle.ContainerScoped });
 };
 
 registerDependencies();
@@ -93,23 +98,10 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrentByMetainfo = (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
-    const requestContainer = this.registerScopedDependencies(metainfo, files);
-    requestContainer.register('ILogger', {
-      useFactory: (ioc) => new ConsoleLogger()
-    });
+  public addTorrentByMetainfo = async (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
+    let requestContainer = this.registerScopedDependencies(metainfo, files);
 
-    requestContainer.register('IExtension', {
-      useFactory: (ioc) => (w: Wire) =>
-        new MetadataExtension(
-          w,
-          ioc.resolve(MetaInfoService).infoIdentifier!,
-          ioc.resolve(MetaInfoService),
-          ioc.resolve<IHashService>('IHashService'),
-          ioc.resolve<ISigningService>('ISigningService'),
-          ioc.resolve<ILogger>('ILogger')
-        )
-    });
+    requestContainer = await this.registerExtensions(requestContainer);
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
@@ -120,39 +112,22 @@ export class Client {
   };
 
   public addTorrentByInfoHash = async (infoHash: Buffer) => {
-    const requestContainer = this.registerScopedDependencies(undefined, []);
-    requestContainer.register('ILogger', {
-      useFactory: (ioc) => new ConsoleLogger()
-    });
-
-    requestContainer.register('IExtension', {
-      useFactory: (ioc) => (w: Wire) =>
-        new MetadataExtension(w, infoHash, ioc.resolve(MetaInfoService), ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
-    });
-
-    const discovery = requestContainer.resolve<TorrentDiscovery>('ITorrentDiscovery');
-    const metainfo = await discovery.discoverByInfoHash(infoHash);
-
-    const torrentManager = requestContainer.resolve(TorrentManager);
-
-    torrentManager.addTorrent(metainfo);
-    this.torrents.push(torrentManager);
-    return torrentManager;
+    return this.addTorrentByInfoIdentifier(infoHash);
   };
 
   public addTorrentByInfoSig = async (infoSig: Buffer) => {
-    const requestContainer = this.registerScopedDependencies(undefined, []);
-    requestContainer.register('ILogger', {
-      useFactory: (ioc) => new ConsoleLogger()
-    });
+    return this.addTorrentByInfoIdentifier(infoSig);
+  };
 
-    requestContainer.register('IExtension', {
-      useFactory: (ioc) => (w: Wire) =>
-        new MetadataExtension(w, infoSig, ioc.resolve(MetaInfoService), ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
-    });
+  private addTorrentByInfoIdentifier = async (infoIdentifier: Buffer) => {
+    let requestContainer = this.registerScopedDependencies(undefined, []);
 
     const discovery = requestContainer.resolve<TorrentDiscovery>('ITorrentDiscovery');
-    const metainfo = await discovery.discoverByInfoSig(infoSig);
+    const metainfo = await discovery.discoverByInfoSig(infoIdentifier);
+
+    // Set up metainfo service and extensions, so we can get going
+    requestContainer.resolve(MetaInfoService).metainfo = metainfo;
+    requestContainer = await this.registerExtensions(requestContainer);
 
     const torrentManager = requestContainer.resolve(TorrentManager);
 
@@ -165,6 +140,8 @@ export class Client {
     const requestContainer = container.createChildContainer();
 
     requestContainer.registerSingleton(PieceManager);
+
+    requestContainer.registerSingleton('ILogger', ConsoleLogger);
 
     requestContainer.register(PeerManager, {
       useClass: PeerManager
@@ -180,6 +157,46 @@ export class Client {
     }
 
     requestContainer.registerInstance(MetaInfoService, new MetaInfoService(metainfo, fileChunks));
+
+    return requestContainer;
+  };
+
+  private registerExtensions = async (requestContainer: DependencyContainer): Promise<DependencyContainer> => {
+    const infoIdentifier = requestContainer.resolve(MetaInfoService).infoIdentifier;
+    if (!infoIdentifier) {
+      throw new Error('Cant add torrent if we dont have an InfoID');
+    }
+
+    requestContainer.register('IExtension', {
+      useFactory: (ioc) => (w: Wire) =>
+        new MetadataExtension(
+          w,
+          infoIdentifier,
+          ioc.resolve(MetaInfoService),
+          ioc.resolve<IHashService>('IHashService'),
+          ioc.resolve<ISigningService>('ISigningService'),
+          ioc.resolve<ILogger>('ILogger')
+        )
+    });
+
+    const keyPair = await requestContainer.resolve(SECP256K1SignatureAlgorithm).generateKeyPair();
+
+    requestContainer.register('IExtension', {
+      useFactory: (ioc) => (w: Wire) =>
+        new BitcoinExtension(
+          w,
+          {
+            getPrice: (index, offset, length) => {
+              // 1sat for every 10KB
+              const kb = length / 1000;
+              return Math.ceil(kb);
+            },
+            keyPair
+          },
+          ioc.resolve(SECP256K1SignatureAlgorithm),
+          ioc.resolve<ILogger>('ILogger')
+        )
+    });
 
     return requestContainer;
   };

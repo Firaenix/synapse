@@ -17,14 +17,18 @@
       }
     },
     {
-      "name": "Current TS File",
+      "name": "Run Project",
       "type": "node",
       "request": "launch",
       "args": ["./src/index.ts"],
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
       "sourceMaps": true,
       "cwd": "${workspaceRoot}",
-      "protocol": "inspector"
+      "protocol": "inspector",
+      "env": {
+        "SEEDING": "true",
+        "LEECHING": "true"
+      }
     }
   ]
 }

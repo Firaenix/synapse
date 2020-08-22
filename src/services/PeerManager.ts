@@ -7,8 +7,7 @@ import { v4 as uuid } from 'uuid';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
-import { IPeerStrategy, PeerStrategyEvents } from './interfaces/IPeerStrategy';
-import { MetaInfoService } from './MetaInfoService';
+import { IPeerStrategy } from './interfaces/IPeerStrategy';
 import { Peer, PeerEvents } from './Peer';
 import { PieceManager } from './PieceManager';
 
@@ -33,7 +32,6 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     @inject('IHashService') private readonly hashService: IHashService,
     @injectAll('IPeerStrategy') private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
     private readonly pieceManager: PieceManager,
-    private readonly metainfoService: MetaInfoService,
 
     @injectAll('IExtension')
     private readonly extensions: Array<(w: Wire) => IExtension>,
@@ -44,9 +42,9 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     this.logger.log('PEER MANAGER PEERID', this.peerId);
 
     for (const strategy of peerDiscoveryStrategies) {
-      strategy.on(PeerStrategyEvents.found, this.onWireConnected);
-      strategy.on(PeerStrategyEvents.got_update, (key) => {
-        this.logger.info(strategy.name, 'Updated', key);
+      strategy.on('found', this.onWireConnected);
+      strategy.on('got_update', (key) => {
+        // this.logger.info(strategy.name, 'Updated', key);
       });
     }
   }
@@ -133,8 +131,6 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     peer.on(PeerEvents.close, () => {
       this.peers.splice(peerIndex, 1);
     });
-
-    this.logger.log(this.peers.length);
   };
 
   private onPiece = async (index: number, offset: number, pieceBuf: Buffer) => {

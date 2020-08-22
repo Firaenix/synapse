@@ -149,6 +149,10 @@ export class Peer extends TypedEmitter<PeerEmitter> {
     return this.wire.unchoke();
   };
 
+  public get peerId() {
+    return this.wire.peerId;
+  }
+
   /**
    * Checks if the peer has any pieces that are missing from the given bitfield.
    *

@@ -1,7 +1,6 @@
-import Wire, { ExtendedHandshake, Extension, HandshakeExtensions } from '@firaenix/bittorrent-protocol';
+import Wire, { EventExtension, ExtendedHandshake, HandshakeExtensions } from '@firaenix/bittorrent-protocol';
 import bencode from 'bencode';
 import Bitfield from 'bitfield';
-import { EventEmitter } from 'events';
 import { inject } from 'tsyringe';
 
 import { isSignedMetainfo, MetainfoFile, SignedMetainfoFile } from '../models/MetainfoFile';
@@ -51,15 +50,14 @@ enum MetainfoFlags {
   error = 0xff
 }
 
-export const MetadataExtensionEvents = {
-  ReceivedMetainfo: 'on:metainfo',
-  Error: 'on:error'
-};
+export interface MetadataExtensionEvents {
+  ReceivedMetainfo: (metainfo: MetainfoFile) => void;
+  error: (err: Error) => void;
+}
 
-export class MetadataExtension extends Extension {
+export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
   public name = 'metadata';
   public requirePeer?: boolean | undefined;
-  public eventBus = new EventEmitter();
   public myBitfield: Bitfield;
   public metaPieceLength: number;
   public peerBitfield?: Bitfield;
@@ -78,6 +76,8 @@ export class MetadataExtension extends Extension {
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super(wire);
+
+    this.logger.info('Created MetadataExtension', wire.wireName);
 
     const metaBuffer = bencode.encode(this.metainfoService.metainfo);
     this.metaPieceLength = calculatePieceLength(metaBuffer.length);
@@ -104,7 +104,7 @@ export class MetadataExtension extends Extension {
   }
 
   onHandshake = (infoHash: string, peerId: string, extensions: HandshakeExtensions) => {
-    this.logger.log(this.wire.wireName, 'metadata onHandshake', infoHash, peerId, extensions);
+    this.logger.log('metadata onHandshake', this.wire.wireName, infoHash, peerId, extensions);
   };
 
   onExtendedHandshake = (handshake: ExtendedHandshake) => {
@@ -161,7 +161,7 @@ export class MetadataExtension extends Extension {
       }
     } catch (error) {
       this.sendExtendedMessage([MetainfoFlags.error, error]);
-      this.eventBus.emit(MetadataExtensionEvents.Error, error);
+      this.emit('error', error);
     }
   };
 
@@ -241,7 +241,7 @@ export class MetadataExtension extends Extension {
       await this.isValidMetainfo(metainfo);
       this.metainfoService.metainfo = metainfo;
       this.sendExtendedMessage([MetainfoFlags.recieved_metainfo]);
-      this.eventBus.emit(MetadataExtensionEvents.ReceivedMetainfo, metainfo);
+      this.emit('ReceivedMetainfo', metainfo);
       return;
     }
 

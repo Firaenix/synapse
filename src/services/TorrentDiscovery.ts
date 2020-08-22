@@ -1,18 +1,17 @@
 import Wire, { IExtension } from '@firaenix/bittorrent-protocol';
-import { inject, injectAll, Lifecycle, scoped } from 'tsyringe';
+import { inject, injectable, injectAll } from 'tsyringe';
 
-import { MetadataExtension, MetadataExtensionEvents } from '../extensions/Metadata';
-import { MetainfoFile, SignedMetainfoFile } from '../models/MetainfoFile';
+import { MetadataExtension } from '../extensions/Metadata';
+import { isSignedMetainfo, MetainfoFile } from '../models/MetainfoFile';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
-import { IPeerStrategy, PeerStrategyEvents } from './interfaces/IPeerStrategy';
+import { IPeerStrategy } from './interfaces/IPeerStrategy';
 import { ISigningService } from './interfaces/ISigningService';
 import { ITorrentDiscovery } from './interfaces/ITorrentDiscovery';
 import { MetaInfoService } from './MetaInfoService';
-import { Peer } from './Peer';
 
-@scoped(Lifecycle.ResolutionScoped)
+@injectable()
 export class TorrentDiscovery implements ITorrentDiscovery {
   constructor(
     @injectAll('IPeerStrategy') private readonly peerStrategies: Array<IPeerStrategy>,
@@ -24,64 +23,98 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
   public discoverByInfoHash = (infoHash: Buffer): Promise<MetainfoFile> =>
     new Promise<MetainfoFile>((resolve, reject) => {
-      const peerList: Peer[] = [];
-
       for (const strat of this.peerStrategies) {
         const infoHashHash = this.hashService.hash(infoHash, SupportedHashAlgorithms.sha256);
         strat.startDiscovery(infoHashHash);
 
-        strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
-          this.logger.log('DISCOVERED NEW PEER');
-          const metadataExtension = new MetadataExtension(connectedWire, infoHash, this.metainfoService, this.hashService, this.signingService, this.logger);
-          connectedWire.use(() => metadataExtension);
-          const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
-          this.logger.log('DISCOVERY PEERID', peerId);
+        strat.on('found', async (connectedWire: Wire) => {
+          try {
+            const metaInfo = await this.discoverByInfoIdentifier(connectedWire, infoHash);
 
-          peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
-
-          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: MetainfoFile) => {
-            if (this.metainfoService.metainfo === undefined) {
-              throw new Error('Meta info store was not updated on discover');
+            if (!this.metainfoService.metainfo) {
+              return reject(new Error('Metainfo service is empty'));
             }
 
-            if (metainfo.infohash.equals(this.metainfoService.metainfo?.infohash) === false) {
-              throw new Error('What how do');
+            if (metaInfo.infohash.equals(this.metainfoService.metainfo.infohash) === false) {
+              return reject(new Error('What how do'));
             }
 
-            resolve(metainfo);
-          });
+            resolve(metaInfo);
+          } catch (error) {
+            reject(error);
+          } finally {
+            for (const strat of this.peerStrategies) {
+              strat.stopDiscovery(infoHash);
+            }
+          }
         });
       }
     });
 
   public discoverByInfoSig = (infoSig: Buffer): Promise<MetainfoFile> =>
     new Promise<MetainfoFile>((resolve, reject) => {
-      const peerList: Peer[] = [];
-
       for (const strat of this.peerStrategies) {
         const infoSigHash = this.hashService.hash(infoSig, SupportedHashAlgorithms.sha256);
         strat.startDiscovery(infoSigHash);
 
-        strat.on(PeerStrategyEvents.found, (connectedWire: Wire, infoIdentifier: Buffer) => {
-          this.logger.log('DISCOVERED NEW PEER');
-          const metadataExtension = new MetadataExtension(connectedWire, infoSig, this.metainfoService, this.hashService, this.signingService, this.logger);
-          connectedWire.use(() => metadataExtension as IExtension);
-          const peerId = this.hashService.hash(Buffer.from('DISOVERYPEER'), SupportedHashAlgorithms.sha1);
-          this.logger.log('DISCOVERY PEERID', peerId);
+        strat.on('found', async (connectedWire: Wire) => {
+          this.logger.info('TorrentDiscovery', 'Found wire', connectedWire.wireName);
+          try {
+            const metaInfo = await this.discoverByInfoIdentifier(connectedWire, infoSig);
 
-          peerList.push(new Peer(connectedWire, infoIdentifier, peerId, this.logger));
-
-          metadataExtension.eventBus.once(MetadataExtensionEvents.ReceivedMetainfo, (metainfo: SignedMetainfoFile) => {
-            if (this.metainfoService.metainfo === undefined) {
-              throw new Error('Meta info store was not updated on discover');
+            if (!this.metainfoService.metainfo) {
+              return reject(new Error('Metainfo service is empty'));
             }
 
-            if (metainfo.infohash.equals(this.metainfoService.metainfo?.infohash) === false) {
-              throw new Error('What how do');
+            if (!isSignedMetainfo(metaInfo)) {
+              return reject(new Error('Not a signed metainfo file'));
             }
-            resolve(metainfo);
-          });
+
+            if (!isSignedMetainfo(this.metainfoService.metainfo)) {
+              return reject(new Error('metainfo service does not contain a signed metainfo file'));
+            }
+
+            if (metaInfo.infosig.equals(this.metainfoService.metainfo.infosig) === false) {
+              return reject(new Error('What how do'));
+            }
+
+            resolve(metaInfo);
+          } catch (error) {
+            reject(error);
+          } finally {
+            // for (const strat of this.peerStrategies) {
+            //   strat.stopDiscovery(infoSig);
+            // }
+          }
         });
       }
+    });
+
+  private discoverByInfoIdentifier = (connectedWire: Wire, infoId: Buffer) =>
+    new Promise<MetainfoFile>((resolve, reject) => {
+      this.logger.info('TorrentDiscovery - attempting to get metainfo from wire', connectedWire.wireName);
+      connectedWire.on('error', (err: Error) => {
+        this.logger.error(err);
+
+        reject(err);
+      });
+
+      this.logger.log('DISCOVERED NEW PEER', connectedWire.wireName);
+      const metadataExtension = new MetadataExtension(connectedWire, infoId, this.metainfoService, this.hashService, this.signingService, this.logger);
+      connectedWire.use(() => metadataExtension as IExtension);
+
+      metadataExtension.on('error', (err) => {
+        this.logger.error('TorrentDiscovery - failed to get metadata from wire', connectedWire.wireName);
+        this.logger.error(err);
+        reject(err);
+      });
+
+      metadataExtension.once('ReceivedMetainfo', (metainfo: MetainfoFile) => {
+        if (this.metainfoService.metainfo === undefined) {
+          throw new Error('Meta info store was not updated on discover');
+        }
+
+        resolve(metainfo);
+      });
     });
 }

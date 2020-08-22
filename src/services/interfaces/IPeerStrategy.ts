@@ -1,11 +1,12 @@
-import { EventEmitter } from 'events';
+import Wire from '@firaenix/bittorrent-protocol';
+import { TypedEmitter } from 'tiny-typed-emitter';
 
-export const PeerStrategyEvents = {
-  found: Symbol('found'),
-  got_update: Symbol('on:update')
-};
+export interface PeerStrategyEvents {
+  found: (wire: Wire, infoIdHash: Buffer) => void;
+  got_update: (key: Buffer) => void;
+}
 
-export interface IPeerStrategy extends EventEmitter {
+export interface IPeerStrategy extends TypedEmitter<PeerStrategyEvents> {
   name: string;
   startDiscovery: (infoIdentifier: Buffer) => void;
 
