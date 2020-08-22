@@ -1,5 +1,5 @@
 import Wire, { Extension } from '@firaenix/bittorrent-protocol';
-import { autoInjectable, container, DependencyContainer, inject, Lifecycle } from 'tsyringe';
+import { autoInjectable, container, DependencyContainer, inject } from 'tsyringe';
 
 import { BitcoinExtension } from './extensions/Bitcoin';
 import { MetadataExtension } from './extensions/Metadata';
@@ -34,32 +34,18 @@ const defaultSettings: Settings = {
 };
 
 const registerDependencies = () => {
-  container.register('IHashService', {
-    useClass: HashService
-  });
+  container.register('IHashService', HashService);
 
-  container.register('ISigningService', {
-    useClass: SigningService
-  });
+  container.register('ISigningService', SigningService);
 
-  container.register('ISigningAlgorithm', {
-    useClass: ED25519SuperCopAlgorithm
-  });
+  container.register('ISigningAlgorithm', ED25519SuperCopAlgorithm);
+  container.register(ED25519SuperCopAlgorithm, ED25519SuperCopAlgorithm);
 
-  container.register(ED25519SuperCopAlgorithm, {
-    useClass: ED25519SuperCopAlgorithm
-  });
+  container.register('ISigningAlgorithm', SECP256K1SignatureAlgorithm);
+  container.register(SECP256K1SignatureAlgorithm, SECP256K1SignatureAlgorithm);
 
-  container.register('ISigningAlgorithm', {
-    useClass: SECP256K1SignatureAlgorithm
-  });
-
-  container.register(SECP256K1SignatureAlgorithm, {
-    useClass: SECP256K1SignatureAlgorithm
-  });
-
-  container.register('IPeerStrategy', ClassicNetworkPeerStrategy, { lifecycle: Lifecycle.ContainerScoped });
-  container.register('IPeerStrategy', WebRTCPeerStrategy, { lifecycle: Lifecycle.ContainerScoped });
+  container.register('IPeerStrategy', ClassicNetworkPeerStrategy);
+  container.register('IPeerStrategy', WebRTCPeerStrategy);
 };
 
 registerDependencies();
@@ -143,13 +129,9 @@ export class Client {
 
     requestContainer.registerSingleton('ILogger', ConsoleLogger);
 
-    requestContainer.register(PeerManager, {
-      useClass: PeerManager
-    });
+    requestContainer.register(PeerManager, PeerManager);
 
-    requestContainer.register('ITorrentDiscovery', {
-      useClass: TorrentDiscovery
-    });
+    requestContainer.register('ITorrentDiscovery', TorrentDiscovery);
 
     let fileChunks: Array<Buffer> = [];
     if (metainfo) {

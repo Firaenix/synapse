@@ -10,6 +10,7 @@ import { IPeerStrategy } from './interfaces/IPeerStrategy';
 import { ISigningService } from './interfaces/ISigningService';
 import { ITorrentDiscovery } from './interfaces/ITorrentDiscovery';
 import { MetaInfoService } from './MetaInfoService';
+import { Peer } from './Peer';
 
 @injectable()
 export class TorrentDiscovery implements ITorrentDiscovery {
@@ -99,7 +100,8 @@ export class TorrentDiscovery implements ITorrentDiscovery {
         reject(err);
       });
 
-      this.logger.log('DISCOVERED NEW PEER', connectedWire.wireName);
+      const peerId = this.hashService.hash(Buffer.from(`DISCOVERY${connectedWire.wireName}`), SupportedHashAlgorithms.sha1);
+
       const metadataExtension = new MetadataExtension(connectedWire, infoId, this.metainfoService, this.hashService, this.signingService, this.logger);
       connectedWire.use(() => metadataExtension as IExtension);
 
@@ -116,5 +118,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
         resolve(metainfo);
       });
+
+      new Peer(connectedWire, infoId, peerId, this.logger);
     });
 }

@@ -1,8 +1,8 @@
 import Wire, { EventExtension, ExtendedHandshake, HandshakeExtensions, IExtension } from '@firaenix/bittorrent-protocol';
 import bencode from 'bencode';
 import { inject } from 'tsyringe';
+import { v4 as uuid } from 'uuid';
 
-import { logger } from '..';
 import { SECP256K1KeyPair } from '../models/SECP256K1KeyPair';
 import { ILogger } from '../services/interfaces/ILogger';
 import { SECP256K1SignatureAlgorithm } from '../services/signaturealgorithms/SECP256K1SignatureAlgorithm';
@@ -15,7 +15,7 @@ interface BitcoinExtensionEvents {
 }
 
 enum BitcoinFlags {
-  Handshake = 0x0,
+  Handshake = 0x99,
   HandshakeACK = 0x1,
   TransactionRequest = 0x10,
   TransactionResponse = 0x11,
@@ -37,10 +37,11 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
   private peerPublicKey: Buffer | undefined;
   private infoIdentifierSig: Buffer | undefined;
   private infoIdentifier: Buffer | undefined;
+  private id = uuid();
 
   constructor(wire: Wire, private readonly config: BitcoinConfiguration, private readonly sigAlgo: SECP256K1SignatureAlgorithm, @inject('ILogger') private readonly logger: ILogger) {
     super(wire);
-    this.logger.info('Created Bitcoin extension', wire.wireName);
+    this.logger.info('Created Bitcoin extension', this.id);
   }
 
   onHandshake = async (infoIdentifier: string, peerId: string, extensions: HandshakeExtensions) => {
@@ -61,11 +62,11 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     try {
       const priceForPiece = this.config.getPrice(index, offset, length);
 
-      this.logger.info('BITCOIN: Got request for piece', index, offset, length);
+      this.logger.info(`BITCOIN ${this.id} ${this.wire.wireName}: Got request for piece`, index, offset, length);
 
       const txn = await this.requestTransaction(index, offset, length, priceForPiece);
 
-      this.logger.info('BITCOIN: Peer sent us a transaction, continue.', index, offset, length, txn);
+      this.logger.info(`BITCOIN ${this.id}: Peer sent us a transaction, continue.`, index, offset, length, txn);
     } catch (error) {
       this.logger.error(error);
     }
@@ -75,7 +76,7 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     new Promise((resolve, reject) => {
       // If request takes longer than 30seconds, fail the request and dont send the data
 
-      this.sendExtendedMessage([BitcoinFlags.TransactionRequest, Buffer.from('THIS IS MY TRANSACTION'), price]);
+      this.sendExtendedMessage([BitcoinFlags.TransactionRequest, index, offset, length, Buffer.from('THIS IS MY TRANSACTION'), price]);
       this.removeAllListeners(`TransactionRecieved-${index}-${offset}-${length}`);
       this.removeAllListeners(`TransactionRejected-${index}-${offset}-${length}`);
 
@@ -100,20 +101,36 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
         await this.onKeyPairHandshake(msg[0] as Buffer, msg[1] as Buffer);
         return;
       case BitcoinFlags.HandshakeACK:
-        this.logger.info('Peer acknowledged valid handshake');
+        this.logger.info(`BITCOIN ${this.id}: Peer acknowledged valid handshake`);
         return;
       case BitcoinFlags.TransactionRequest:
-        this.onTransactionRequestRecieved(Number(msg[0]), Number(msg[1]), Number(msg[2]), msg[0] as Buffer, Number(msg[1]));
+        this.onTransactionRequestRecieved(Number(msg[0]), Number(msg[1]), Number(msg[2]), msg[3] as Buffer, Number(msg[4]));
         return;
       case BitcoinFlags.TransactionResponse:
-        // Allow single callback to someone waiting for a response for that index, offset, length
-        this.emit(`TransactionRecieved-${Number(msg[0])}-${Number(msg[1])}-${Number(msg[2])}`, msg[3] as Buffer);
+        this.onTransactionResponse(msg);
         return;
       case BitcoinFlags.TransactionRejected:
-        // this.onTransactionRequestRecieved(msg[0] as Buffer, Number(msg[1]));
-        this.emit(`TransactionRejected-${Number(msg[0])}-${Number(msg[1])}-${Number(msg[2])}`);
+        this.onTransactionRejected(msg);
         return;
     }
+  };
+
+  onTransactionResponse = (msg: unknown[]) => {
+    const index = Number(msg[0]);
+    const offset = Number(msg[1]);
+    const length = Number(msg[2]);
+
+    // Allow single callback to someone waiting for a response for that index, offset, length
+    this.emit(`TransactionRecieved-${index}-${offset}-${length}`, msg[3] as Buffer);
+  };
+
+  onTransactionRejected = (msg: unknown[]) => {
+    const index = Number(msg[0]);
+    const offset = Number(msg[1]);
+    const length = Number(msg[2]);
+
+    // Allow single callback to someone waiting for a response for that index, offset, length
+    this.emit(`TransactionRejected-${index}-${offset}-${length}`);
   };
 
   onKeyPairHandshake = async (signature: Buffer, publicKey: Buffer) => {
