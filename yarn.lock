@@ -292,10 +292,10 @@
     exec-sh "^0.3.2"
     minimist "^1.2.0"
 
-"@firaenix/bittorrent-protocol@^3.2.35":
-  version "3.2.35"
-  resolved "https://registry.yarnpkg.com/@firaenix/bittorrent-protocol/-/bittorrent-protocol-3.2.35.tgz#2e8b7af6e5299883759bd75654f1499aa3dcc129"
-  integrity sha512-JLYO3ky1wtkccBxhMjLipOCPtExnCfRzfsGHZOxlwAsUu2E0kh7FzdrLLw2wfw1MJ/un8zJHvUH49S3H6dATig==
+"@firaenix/bittorrent-protocol@^3.2.36":
+  version "3.2.36"
+  resolved "https://registry.yarnpkg.com/@firaenix/bittorrent-protocol/-/bittorrent-protocol-3.2.36.tgz#1db4580bcbf7cb58f9b33ce8c744fd8456e9a81b"
+  integrity sha512-ete39qfNkA4SVciPggPYoVMgHO8+rpkDjwit0CiGelNSzMKkmaswmENUH0lW+6mEvBdqwmMiQ+gFKYaOdXOh/Q==
   dependencies:
     "@types/bencode" "^2.0.0"
     "@types/debug" "^4.1.5"

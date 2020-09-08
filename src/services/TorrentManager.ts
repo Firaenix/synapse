@@ -135,39 +135,26 @@ export class TorrentManager {
     if (!this.metainfoService.metainfo) {
       throw new Error('Cant recieve bitfield, got no metainfo');
     }
+    if (!peer.peerId) {
+      this.logger.error('Unable to determine peerId, destroying connection');
+      peer.destroy();
+      return;
+    }
 
     const pieces = this.metainfoService.metainfo.info.pieces;
 
-    this.logger.log('Bitfield length', recievedBitfield.buffer.length);
+    this.logger.log(peer.wire.wireName, 'Bitfield length', recievedBitfield.buffer.length);
+    this.pieceManager.addPeerBitfield(peer.peerId, recievedBitfield);
     const myBitfield = this.pieceManager.getBitfield();
 
     const missingPieces = peer.getIndexesThatDontExistInGivenBitfield(myBitfield, pieces.length);
     if (missingPieces.length <= 0) {
       peer.setUninterested();
-      this.logger.log('Peer has no pieces that we want, uninterested');
+      this.logger.log(peer.wire.wireName, 'Peer has no pieces that we want, uninterested');
       return;
     }
 
-    this.requestPiecesLoop(peer);
-  };
-
-  private chooseNextPieceIndex = (excluding: Array<number> = []): [number, number, number] => {
-    if (!this.metainfoService.metainfo) {
-      throw new Error('Cant choose next piece, got no metainfo');
-    }
-    const metainfo = this.metainfoService.metainfo;
-    const pieces = this.metainfoService.metainfo.info.pieces;
-
-    const pieceIndex = pieces.findIndex((_, index) => !this.pieceManager.hasPiece(index) && !excluding.includes(index));
-    let pieceLength = metainfo.info['piece length'];
-
-    // If last piece, calculate what the correct offset is.
-    if (pieceIndex === pieces.length - 1) {
-      const totalfileLength = metainfo.info.files.map((x) => x.length).reduce((p, c) => p + c);
-      pieceLength = totalfileLength % pieceLength;
-    }
-
-    return [pieceIndex, metainfo.info['piece length'] * pieceIndex, pieceLength];
+    this.requestPiecesLoop();
   };
 
   private onRequest = (peer: Peer, index: number, offset: number, length: number) => {
@@ -186,7 +173,7 @@ export class TorrentManager {
     peer.sendPiece(index, offset, this.pieceManager.getPiece(index));
   };
 
-  private requestPiecesLoop = async (peer: Peer) => {
+  private requestPiecesLoop = async () => {
     try {
       // TODO: Store a map somewhere to say which peers have the pieces we want - PeerManager?
       if (this.metainfoService === undefined) {
@@ -203,7 +190,14 @@ export class TorrentManager {
         return;
       }
 
-      const [pieceIndex, pieceOffset, pieceLength] = this.chooseNextPieceIndex();
+      const [pieceIndex, pieceOffset, pieceLength] = this.pieceManager.getNextNeededPiece();
+
+      // Get the first peer that has that piece
+      const peer = this.peerManager.getPeerThatHasPiece(pieceIndex);
+      if (!peer) {
+        throw new Error('Peer doesnt exist cant request next piece');
+      }
+
       const pieceBuf = await peer.request(pieceIndex, pieceOffset, pieceLength);
 
       if (pieceBuf.length !== pieceLength) {
@@ -222,7 +216,7 @@ export class TorrentManager {
       this.peerManager.cancel(pieceIndex, pieceOffset, pieceLength);
       this.onPieceValidated(pieceIndex, pieceOffset, pieceBuf);
 
-      await this.requestPiecesLoop(peer);
+      await this.requestPiecesLoop();
     } catch (error) {
       if (util.types.isNativeError(error)) {
         if (error.message === 'request was cancelled') {

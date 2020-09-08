@@ -86,8 +86,10 @@ export class Peer extends TypedEmitter<PeerEmitter> {
     this.emit(PeerEvents.got_request, index, offset, length);
   };
 
-  private onExtended = (_: string, extensions: ExtendedHandshake) => {
-    this.logger.log(this.wire.wireName, 'Incoming handshake from ', extensions, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
+  private onExtended = (extensionName: string, extensions: ExtendedHandshake) => {
+    this.logger.log(this.wire.wireName, 'Incoming extended message from ', extensionName, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
+
+    this.logger.log(this.wire.wireName, 'Supported extensions: ', extensions);
 
     if (this.myPeerId.toString('hex') === this.wire.peerId) {
       this.logger.warn('Dont want to connect to myself, thats weird.');
@@ -95,11 +97,13 @@ export class Peer extends TypedEmitter<PeerEmitter> {
       return;
     }
 
-    this.wire.unchoke();
-
-    this.emit(PeerEvents.need_bitfield, (bitfield: Bitfield) => {
-      this.wire.bitfield(bitfield);
-    });
+    // Only want to request bitfield after handshake
+    if (extensionName === 'handshake') {
+      this.wire.unchoke();
+      this.emit(PeerEvents.need_bitfield, (bitfield: Bitfield) => {
+        this.wire.bitfield(bitfield);
+      });
+    }
   };
 
   public destroy = () => {

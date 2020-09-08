@@ -35,7 +35,7 @@ export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents>
     });
 
     this.swarm.on('connection', (socket, details) => {
-      const wire = new Wire(uuid());
+      const wire = new Wire(`TCP-${Math.random().toString(36).substr(2, 9)}`);
       wire.pipe(socket).pipe(wire);
       this.emit('found', wire, infoHash);
     });

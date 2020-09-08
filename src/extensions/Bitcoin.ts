@@ -6,20 +6,20 @@ import { v4 as uuid } from 'uuid';
 import { SECP256K1KeyPair } from '../models/SECP256K1KeyPair';
 import { ILogger } from '../services/interfaces/ILogger';
 import { SECP256K1SignatureAlgorithm } from '../services/signaturealgorithms/SECP256K1SignatureAlgorithm';
+import { wait } from '../utils/wait';
 
 interface BitcoinExtensionEvents {
   error: (error: Error) => void;
   TransactionRecieved: (index: number, offset: number, length: number, encodedTxn: Buffer) => void;
-
-  [value: string]: (...args: any[]) => void;
+  [k: string]: (...args: any[]) => void;
 }
 
 enum BitcoinFlags {
-  Handshake = 0x99,
+  Handshake = 0x0,
   HandshakeACK = 0x1,
-  TransactionRequest = 0x10,
-  TransactionResponse = 0x11,
-  TransactionRejected = 0x12
+  TransactionRequest = 0xa0,
+  TransactionResponse = 0xa1,
+  TransactionRejected = 0xa2
 }
 
 export interface BitcoinConfiguration {
@@ -38,6 +38,9 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
   private infoIdentifierSig: Buffer | undefined;
   private infoIdentifier: Buffer | undefined;
   private id = uuid();
+
+  private pieceTxMap: { [index: number]: Buffer } = {};
+  private txRequests: { [index: number]: boolean } = {};
 
   constructor(wire: Wire, private readonly config: BitcoinConfiguration, private readonly sigAlgo: SECP256K1SignatureAlgorithm, @inject('ILogger') private readonly logger: ILogger) {
     super(wire);
@@ -60,37 +63,57 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
    */
   onRequest = async (index: number, offset: number, length: number) => {
     try {
+      if (this.txRequests[index] === true) {
+        this.logger.warn(this.wire.wireName, 'Already requested for this piece');
+        return;
+      }
+
       const priceForPiece = this.config.getPrice(index, offset, length);
 
-      this.logger.info(`BITCOIN ${this.id} ${this.wire.wireName}: Got request for piece`, index, offset, length);
+      this.logger.info(this.wire.wireName, `BITCOIN ${this.id} ${this.wire.wireName}: Got request for piece`, index, offset, length);
 
-      const txn = await this.requestTransaction(index, offset, length, priceForPiece);
+      this.sendExtendedMessage([BitcoinFlags.TransactionRequest, index, offset, length, Buffer.from('UnsignedTX'), priceForPiece]);
 
-      this.logger.info(`BITCOIN ${this.id}: Peer sent us a transaction, continue.`, index, offset, length, txn);
+      const tx = await this.requestTransaction(index, offset, length, priceForPiece);
+
+      this.logger.info(this.wire.wireName, 'BITCOIN: TXN BACK:', tx);
+
+      this.logger.info(this.wire.wireName, 'Waiting 2 sec');
+      await wait(2000);
     } catch (error) {
       this.logger.error(error);
+      throw error;
     }
   };
 
-  private requestTransaction = (index: number, offset: number, length: number, price: number) =>
+  private requestTransaction = (index: number, offset: number, length: number, price: number): Promise<Buffer> =>
     new Promise((resolve, reject) => {
       // If request takes longer than 30seconds, fail the request and dont send the data
+      const t = setTimeout(() => {
+        if (Buffer.isBuffer(this.pieceTxMap[index]) && this.pieceTxMap[index].length > 0) {
+          return;
+        }
 
-      this.sendExtendedMessage([BitcoinFlags.TransactionRequest, index, offset, length, Buffer.from('THIS IS MY TRANSACTION'), price]);
+        reject(new Error(`${this.wire.wireName} ${index}-${offset}-${length} Request for transaction timed out`));
+      }, 30000);
+
+      this.logger.info('Requesting payment for piece', index, offset, length, 'Price:', price);
+
       this.removeAllListeners(`TransactionRecieved-${index}-${offset}-${length}`);
       this.removeAllListeners(`TransactionRejected-${index}-${offset}-${length}`);
 
+      this.sendExtendedMessage([BitcoinFlags.TransactionRequest, index, offset, length, Buffer.from('UnsignedTX'), price]);
+      this.txRequests[index] = true;
+
       this.once(`TransactionRecieved-${index}-${offset}-${length}`, (encodedTx: Buffer) => {
+        clearTimeout(t);
         resolve(encodedTx);
       });
 
       this.once(`TransactionRejected-${index}-${offset}-${length}`, () => {
+        clearTimeout(t);
         reject(new Error('Peer rejected TransactionRequest'));
       });
-
-      setTimeout(() => {
-        reject(new Error('Request for transaction timed out'));
-      }, 30000);
     });
 
   onMessage = async (buf: Buffer) => {
@@ -104,13 +127,16 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
         this.logger.info(`BITCOIN ${this.id}: Peer acknowledged valid handshake`);
         return;
       case BitcoinFlags.TransactionRequest:
-        this.onTransactionRequestRecieved(Number(msg[0]), Number(msg[1]), Number(msg[2]), msg[3] as Buffer, Number(msg[4]));
+        await this.onTransactionRequestRecieved(Number(msg[0]), Number(msg[1]), Number(msg[2]), msg[3] as Buffer, Number(msg[4]));
         return;
       case BitcoinFlags.TransactionResponse:
         this.onTransactionResponse(msg);
         return;
       case BitcoinFlags.TransactionRejected:
         this.onTransactionRejected(msg);
+        return;
+      default:
+        this.logger.warn('Peer sent unknown message:', Buffer.from(flag).toString(), msg);
         return;
     }
   };
@@ -119,9 +145,14 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     const index = Number(msg[0]);
     const offset = Number(msg[1]);
     const length = Number(msg[2]);
+    const TxBuf = bencode.decode(msg[3] as Buffer);
+
+    this.logger.warn('onTransactionResponse', index, offset, length, TxBuf);
 
     // Allow single callback to someone waiting for a response for that index, offset, length
-    this.emit(`TransactionRecieved-${index}-${offset}-${length}`, msg[3] as Buffer);
+    this.pieceTxMap[index] = msg[3] as Buffer;
+    this.logger.warn(`TransactionRecieved-${index}-${offset}-${length}`, msg[3] as Buffer);
+    this.emit(`TransactionRecieved-${index}-${offset}-${length}`, msg[3]);
   };
 
   onTransactionRejected = (msg: unknown[]) => {
@@ -130,6 +161,7 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     const length = Number(msg[2]);
 
     // Allow single callback to someone waiting for a response for that index, offset, length
+    this.logger.warn(`TransactionRejected-${index}-${offset}-${length}`);
     this.emit(`TransactionRejected-${index}-${offset}-${length}`);
   };
 
@@ -150,8 +182,9 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     return this.sendExtendedMessage([BitcoinFlags.HandshakeACK]);
   };
 
-  onTransactionRequestRecieved(index: number, offset: number, length: number, unsignedTransaction: Buffer, price: number) {
-    const signature = this.sigAlgo.sign(unsignedTransaction, this.config.keyPair.secretKey, this.config.keyPair.publicKey);
+  async onTransactionRequestRecieved(index: number, offset: number, length: number, unsignedTransaction: Buffer, price: number) {
+    this.logger.info('Someone asked for a transaction', index, offset, length, unsignedTransaction.toString(), price);
+    const signature = await this.sigAlgo.sign(unsignedTransaction, this.config.keyPair.secretKey, this.config.keyPair.publicKey);
 
     if (price > 100) {
       return this.sendExtendedMessage([BitcoinFlags.TransactionRejected]);

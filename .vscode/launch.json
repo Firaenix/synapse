@@ -19,6 +19,7 @@
     {
       "name": "Run Project",
       "type": "node",
+      "runtimeVersion": "14.8.0",
       "request": "launch",
       "args": ["./src/index.ts"],
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
@@ -27,7 +28,8 @@
       "protocol": "inspector",
       "env": {
         "SEEDING": "true",
-        "LEECHING": "true"
+        "REGEN": "true"
+        //"LEECHING": "true"
       }
     }
   ]

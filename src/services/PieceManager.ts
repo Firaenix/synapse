@@ -13,6 +13,8 @@ import { MetaInfoService } from './MetaInfoService';
 export class PieceManager {
   private bitfield: Bitfield;
 
+  private peerBitfields: { [peerId: string]: Bitfield } = {};
+
   constructor(private readonly metainfoService: MetaInfoService, @inject('ILogger') private readonly logger: ILogger) {
     logger.info('PieceManager being created');
 
@@ -31,12 +33,35 @@ export class PieceManager {
     }
   }
 
+  public addPeerBitfield = (peerId: string, recievedBitfield: Bitfield) => {
+    this.peerBitfields[peerId] = recievedBitfield;
+  };
+
   public hasPiece = (index: number) => {
     return this.bitfield.get(index);
   };
 
   public getBitfield = () => {
     return this.bitfield;
+  };
+
+  public getNextNeededPiece = (excluding: Array<number> = []) => {
+    if (!this.metainfoService.metainfo) {
+      throw new Error('Cant choose next piece, got no metainfo');
+    }
+    const metainfo = this.metainfoService.metainfo;
+    const pieces = this.metainfoService.metainfo.info.pieces;
+
+    const pieceIndex = pieces.findIndex((_, index) => !this.hasPiece(index) && !excluding.includes(index));
+    let pieceLength = metainfo.info['piece length'];
+
+    // If last piece, calculate what the correct offset is.
+    if (pieceIndex === pieces.length - 1) {
+      const totalfileLength = metainfo.info.files.map((x) => x.length).reduce((p, c) => p + c);
+      pieceLength = totalfileLength % pieceLength;
+    }
+
+    return [pieceIndex, metainfo.info['piece length'] * pieceIndex, pieceLength];
   };
 
   public getPiece = (index: number) => {

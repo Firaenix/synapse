@@ -1,7 +1,7 @@
-import { ISigningService } from './interfaces/ISigningService';
-import { singleton, inject, injectAll } from 'tsyringe';
-import hypersign from '@hyperswarm/hypersign';
+import { injectAll, singleton } from 'tsyringe';
+
 import { ISigningAlgorithm, SupportedSignatureAlgorithms } from './interfaces/ISigningAlgorithm';
+import { ISigningService } from './interfaces/ISigningService';
 
 @singleton()
 export class SigningService implements ISigningService {
