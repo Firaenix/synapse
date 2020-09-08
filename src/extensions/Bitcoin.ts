@@ -6,7 +6,6 @@ import { v4 as uuid } from 'uuid';
 import { SECP256K1KeyPair } from '../models/SECP256K1KeyPair';
 import { ILogger } from '../services/interfaces/ILogger';
 import { SECP256K1SignatureAlgorithm } from '../services/signaturealgorithms/SECP256K1SignatureAlgorithm';
-import { wait } from '../utils/wait';
 
 interface BitcoinExtensionEvents {
   error: (error: Error) => void;
@@ -77,9 +76,6 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
       const tx = await this.requestTransaction(index, offset, length, priceForPiece);
 
       this.logger.info(this.wire.wireName, 'BITCOIN: TXN BACK:', tx);
-
-      this.logger.info(this.wire.wireName, 'Waiting 2 sec');
-      await wait(2000);
     } catch (error) {
       this.logger.error(error);
       throw error;
