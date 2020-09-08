@@ -21,7 +21,7 @@
   "author": "Firaenix",
   "license": "WTFPL",
   "dependencies": {
-    "@firaenix/bittorrent-protocol": "^3.2.36",
+    "@firaenix/bittorrent-protocol": "^4.0.1",
     "@hyperswarm/dht": "^4.0.1",
     "@hyperswarm/hypersign": "^2.1.1",
     "@types/bencode": "^2.0.0",

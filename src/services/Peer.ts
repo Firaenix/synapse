@@ -47,7 +47,7 @@ export class Peer extends TypedEmitter<PeerEmitter> {
     this.wire.on('bitfield', this.onBitfield);
 
     // 2. On recieved Extended Handshake (normal handshake follows up with extended handshake), send Bitfield
-    this.wire.on('extended', this.onExtended);
+    this.wire.on('extended_handshake', this.onExtendedHandshake);
 
     this.wire.on('close', this.onWireClosed);
 
@@ -83,10 +83,11 @@ export class Peer extends TypedEmitter<PeerEmitter> {
   };
 
   private onRequest = (index: number, offset: number, length: number) => {
+    this.logger.warn(this.wire.wireName, 'Got a request for', index, offset, length);
     this.emit(PeerEvents.got_request, index, offset, length);
   };
 
-  private onExtended = (extensionName: string, extensions: ExtendedHandshake) => {
+  private onExtendedHandshake = (extensionName: string, extensions: ExtendedHandshake) => {
     this.logger.log(this.wire.wireName, 'Incoming extended message from ', extensionName, 'Our peerId:', this.myPeerId.toString('hex'), 'Their PeerId:', this.wire.peerId);
 
     this.logger.log(this.wire.wireName, 'Supported extensions: ', extensions);
