@@ -1,14 +1,19 @@
 import '../typings';
 import 'reflect-metadata';
 
+import Wire from '@firaenix/bittorrent-protocol';
 import bencode from 'bencode';
 import fs from 'fs';
 import path from 'path';
+import { DependencyContainer } from 'tsyringe';
 
 import { Client } from './Client';
-import { SignedMetainfoFile } from './models/MetainfoFile';
-import { HashService } from './services/HashService';
+import { MetadataExtension } from './extensions/Metadata';
+import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
+import { HashService, IHashService } from './services/HashService';
+import { ILogger } from './services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
+import { ISigningService } from './services/interfaces/ISigningService';
 import { ConsoleLogger } from './services/LogLevelLogger';
 import { ED25519SuperCopAlgorithm } from './services/signaturealgorithms/ED25519SuperCopAlgorithm';
 import { SigningService } from './services/SigningService';
@@ -19,6 +24,11 @@ export const hasher = new HashService();
 export const signingService = new SigningService([new ED25519SuperCopAlgorithm()]);
 export const logger = new ConsoleLogger();
 export const streamDownloader = new StreamDownloadService(logger);
+
+const defaultExtensions = [
+  (ioc: DependencyContainer) => (w: Wire, infoId: Buffer, metainfo?: MetainfoFile) =>
+    new MetadataExtension(w, infoId, metainfo, ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
+];
 
 (async () => {
   const readPath = path.join(__dirname, '..', 'torrents');
@@ -41,7 +51,7 @@ export const streamDownloader = new StreamDownloadService(logger);
 
   // new TorrentManager(hasher, metainfoFile, files);
 
-  const instance = new Client();
+  const instance = new Client({ extensions: defaultExtensions });
   const { publicKey, secretKey } = await signingService.generateKeyPair(SupportedSignatureAlgorithms.ed25519);
 
   const sig = await signingService.sign(Buffer.from('text'), SupportedSignatureAlgorithms.ed25519, Buffer.from(secretKey), Buffer.from(publicKey));
@@ -69,7 +79,7 @@ export const streamDownloader = new StreamDownloadService(logger);
 
   if (process.env.LEECHING) {
     try {
-      const leechInstance = new Client();
+      const leechInstance = new Client({ extensions: defaultExtensions });
       const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
       logger.log('Leeching');
       streamDownloader.download(torrent, 'downloads');

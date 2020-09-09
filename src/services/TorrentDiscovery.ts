@@ -102,7 +102,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
 
       const peerId = this.hashService.hash(Buffer.from(`DISCOVERY${connectedWire.wireName}`), SupportedHashAlgorithms.sha1);
 
-      const metadataExtension = new MetadataExtension(connectedWire, infoId, this.metainfoService, this.hashService, this.signingService, this.logger);
+      const metadataExtension = new MetadataExtension(connectedWire, infoId, undefined, this.hashService, this.signingService, this.logger);
       connectedWire.use(() => metadataExtension as IExtension);
 
       metadataExtension.on('error', (err) => {
@@ -112,9 +112,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
       });
 
       metadataExtension.once('ReceivedMetainfo', (metainfo: MetainfoFile) => {
-        if (this.metainfoService.metainfo === undefined) {
-          throw new Error('Meta info store was not updated on discover');
-        }
+        this.metainfoService.metainfo = metainfo;
 
         resolve(metainfo);
       });

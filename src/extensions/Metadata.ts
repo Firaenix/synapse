@@ -8,7 +8,6 @@ import { IHashService } from '../services/HashService';
 import { ILogger } from '../services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from '../services/interfaces/ISigningAlgorithm';
 import { ISigningService } from '../services/interfaces/ISigningService';
-import { MetaInfoService } from '../services/MetaInfoService';
 import { calculatePieceLength } from '../utils/calculatePieceLength';
 import { chunkBuffer } from '../utils/chunkBuffer';
 
@@ -58,48 +57,52 @@ export interface MetadataExtensionEvents {
 export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
   public name = 'metadata';
   public requirePeer?: boolean | undefined;
-  public myBitfield: Bitfield;
-  public metaPieceLength: number;
+  public myBitfield?: Bitfield;
+  // public metaPieceLength: number;
   public peerBitfield?: Bitfield;
 
   private _metadataBuffer?: Buffer;
 
   private reconstructedBuffer?: Buffer;
-  private metaPieceCount: number;
+  // private metaPieceCount: number;
+
+  /**
+   * If you only have an infoId, this will be undefined.
+   * If you have metainfo, you are the equivalent of a seeder.
+   */
+  private metainfo?: MetainfoFile;
+  private metaPieceLength?: number;
+  private metaPieceCount?: number;
 
   constructor(
     public readonly wire: Wire,
-    private readonly infoIdentifier: Buffer,
-    private metainfoService: MetaInfoService,
+    public readonly infoId: Buffer,
+    metainfo: MetainfoFile | undefined,
     @inject('IHashService') private readonly hashService: IHashService,
     @inject('ISigningService') private readonly signingService: ISigningService,
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super(wire);
 
-    this.logger.info('Created MetadataExtension', wire.wireName);
+    this.metainfo = metainfo;
 
-    const metaBuffer = bencode.encode(this.metainfoService.metainfo);
-    this.metaPieceLength = calculatePieceLength(metaBuffer.length);
-    const bufferChunks = chunkBuffer(metaBuffer, this.metaPieceLength);
-    this.metaPieceCount = bufferChunks.length;
+    if (metainfo) {
+      const metaBuffer = bencode.encode(metainfo);
+      this.metaPieceLength = calculatePieceLength(metaBuffer.length);
+      const bufferChunks = chunkBuffer(metaBuffer, this.metaPieceLength);
+      this.metaPieceCount = bufferChunks.length;
+      this._metadataBuffer = metaBuffer;
 
-    this.myBitfield = new Bitfield(this.metaPieceCount);
-    for (let index = 0; index < this.metaPieceCount; index++) {
-      this.myBitfield.set(index);
+      this.myBitfield = new Bitfield(this.metaPieceCount);
+      for (let index = 0; index < this.metaPieceCount; index++) {
+        this.myBitfield.set(index);
+      }
     }
+
+    this.logger.info(wire.wireName, 'Created MetadataExtension');
   }
 
   private get metadataBuffer(): Buffer | undefined {
-    if (!this.metainfoService.metainfo) {
-      return undefined;
-    }
-
-    if (this._metadataBuffer) {
-      return this._metadataBuffer;
-    }
-
-    this._metadataBuffer = bencode.encode(this.metainfoService.metainfo);
     return this._metadataBuffer;
   }
 
@@ -116,7 +119,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
       return;
     }
 
-    const hasDataFlag = Number(this.metainfoService.metainfo === undefined ? 0x0 : 0x1);
+    const hasDataFlag = Number(this.metainfo === undefined ? 0x0 : 0x1);
 
     this.sendExtendedMessage([MetainfoFlags.have_metadata, hasDataFlag]);
   };
@@ -185,6 +188,12 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
     this.sendExtendedMessage([MetainfoFlags.bitfield, this.myBitfield, this.metaPieceCount, this.metaPieceLength]);
   }
 
+  /**
+   * Last step of the metadata handshake, sets the information we need to recieve the metainfo.
+   * @param msg
+   * @param pieceCount
+   * @param metaPieceLength
+   */
   onPeerMetadataBitfield(msg: Bitfield, pieceCount: number, metaPieceLength: number) {
     this.logger.log('onPeerMetadataBitfield msg', new Bitfield(msg.buffer, { grow: msg.grow }));
 
@@ -200,6 +209,9 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
 
   onFetchRequested = (index: number) => {
     this.logger.log('metainfo requested from peer', index);
+    if (!this.metaPieceLength) {
+      throw new Error('Cannot accept a fetch request when we havent handshaken');
+    }
 
     const chunkStart = this.metaPieceLength * index;
     this.logger.log('chunkStart', chunkStart);
@@ -217,15 +229,15 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
       throw new Error('Nuhuh, dont like that');
     }
 
-    this.logger.log('Recieved metadata piece', index, pieceBuf, this.peerBitfield?.buffer.byteLength);
-    // this.logger.log('GOT METAINFO!');
-    // const metainfo = bencode.decode(metainfoBuffer);
-    // this.metainfoService.metainfo = metainfo;
-    // this.logger.log('Recieved metainfo:', metainfo.infohash, metainfo.info['piece length']);
+    if (!this.metaPieceLength || !this.metaPieceCount || !this.myBitfield) {
+      throw new Error('Cannot accept a fetch request when we havent handshaken');
+    }
 
     if (!this.peerBitfield) {
       throw new Error('Shits fucked');
     }
+
+    this.logger.log('Recieved metadata piece', index, pieceBuf, this.peerBitfield?.buffer.byteLength);
 
     if (!this.reconstructedBuffer) {
       this.reconstructedBuffer = Buffer.alloc(this.metaPieceCount * this.metaPieceLength);
@@ -239,8 +251,8 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
       const metainfo: MetainfoFile = bencode.decode(this.reconstructedBuffer);
 
       await this.isValidMetainfo(metainfo);
-      this.metainfoService.metainfo = metainfo;
       this.sendExtendedMessage([MetainfoFlags.recieved_metainfo]);
+      this.metainfo = metainfo;
       this.emit('ReceivedMetainfo', metainfo);
       return;
     }
@@ -254,7 +266,15 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
     this.sendExtendedMessage([MetainfoFlags.fetch, nextPieceIndex]);
   };
 
+  private get infoIdentifier() {
+    return this.infoId;
+  }
+
   private isValidMetainfo = async (metainfo: MetainfoFile): Promise<boolean> => {
+    if (!this.infoIdentifier) {
+      throw new Error('Need infoidentifier to create metadata extension');
+    }
+
     if (metainfo.infohash.equals(Buffer.from(this.infoIdentifier))) {
       this.logger.log('YAY! it was an info hash and it matches, now to calculate infohash and see if still matches');
       if (this.isValidInfoHash(metainfo, this.infoIdentifier) === false) {

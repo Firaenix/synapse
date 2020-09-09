@@ -1,13 +1,10 @@
-import Wire, { Extension } from '@firaenix/bittorrent-protocol';
-import { autoInjectable, container, DependencyContainer, inject } from 'tsyringe';
+import { container, DependencyContainer } from 'tsyringe';
 
-import { BitcoinExtension } from './extensions/Bitcoin';
-import { MetadataExtension } from './extensions/Metadata';
 import { DiskFile } from './models/DiskFile';
+import { InjectedExtension } from './models/InjectedExtensions';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService, IHashService } from './services/HashService';
-import { ILogger } from './services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { ConsoleLogger } from './services/LogLevelLogger';
@@ -25,7 +22,7 @@ import { createMetaInfo } from './utils/createMetaInfo';
 import { diskFilesToChunks } from './utils/diskFilesToChunks';
 
 export interface Settings {
-  extensions?: Extension[];
+  extensions: ((ioc: DependencyContainer) => InjectedExtension)[];
 }
 
 const defaultSettings: Settings = {
@@ -54,11 +51,17 @@ registerDependencies();
  * Manages the instances of torrents we want to download and seed
  * Client -> Torrent -> Peers
  */
-@autoInjectable()
 export class Client {
   private readonly torrents: Array<TorrentManager> = [];
+  private hashService: IHashService;
+  private readonly signingService: ISigningService;
+  private readonly settings: Settings;
 
-  constructor(@inject('IHashService') private hashService?: IHashService, @inject('ISigningService') private readonly signingService?: ISigningService) {}
+  constructor(settings: Settings = defaultSettings) {
+    this.settings = settings;
+    this.hashService = container.resolve('IHashService');
+    this.signingService = container.resolve('ISigningService');
+  }
 
   generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms): Promise<MetainfoFile>;
   generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer): Promise<SignedMetainfoFile>;
@@ -149,36 +152,30 @@ export class Client {
       throw new Error('Cant add torrent if we dont have an InfoID');
     }
 
-    requestContainer.register('IExtension', {
-      useFactory: (ioc) => (w: Wire) =>
-        new MetadataExtension(
-          w,
-          infoIdentifier,
-          ioc.resolve(MetaInfoService),
-          ioc.resolve<IHashService>('IHashService'),
-          ioc.resolve<ISigningService>('ISigningService'),
-          ioc.resolve<ILogger>('ILogger')
-        )
-    });
+    for (const extension of this.settings.extensions) {
+      requestContainer.register('IExtension', {
+        useValue: extension(requestContainer)
+      });
+    }
 
-    const keyPair = await requestContainer.resolve(SECP256K1SignatureAlgorithm).generateKeyPair();
+    // const keyPair = await requestContainer.resolve(SECP256K1SignatureAlgorithm).generateKeyPair();
 
-    requestContainer.register('IExtension', {
-      useFactory: (ioc) => (w: Wire) =>
-        new BitcoinExtension(
-          w,
-          {
-            getPrice: (index, offset, length) => {
-              // 1sat for every 10KB
-              const kb = length / 1000;
-              return Math.ceil(kb);
-            },
-            keyPair
-          },
-          ioc.resolve(SECP256K1SignatureAlgorithm),
-          ioc.resolve<ILogger>('ILogger')
-        )
-    });
+    // requestContainer.register('IExtension', {
+    //   useFactory: (ioc) => (w: Wire) =>
+    //     new BitcoinExtension(
+    //       w,
+    //       {
+    //         getPrice: (index, offset, length) => {
+    //           // 1sat for every 10KB
+    //           const kb = length / 1000;
+    //           return Math.ceil(kb);
+    //         },
+    //         keyPair
+    //       },
+    //       ioc.resolve(SECP256K1SignatureAlgorithm),
+    //       ioc.resolve<ILogger>('ILogger')
+    //     )
+    // });
 
     return requestContainer;
   };

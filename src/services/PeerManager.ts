@@ -1,13 +1,15 @@
-import Wire, { IExtension } from '@firaenix/bittorrent-protocol';
+import Wire from '@firaenix/bittorrent-protocol';
 import Bitfield from 'bitfield';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { inject, injectable, injectAll } from 'tsyringe';
 import { v4 as uuid } from 'uuid';
 
+import { InjectedExtension } from '../models/InjectedExtensions';
 import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
 import { IPeerStrategy } from './interfaces/IPeerStrategy';
+import { MetaInfoService } from './MetaInfoService';
 import { Peer, PeerEvents } from './Peer';
 import { PieceManager } from './PieceManager';
 
@@ -29,12 +31,17 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
   private readonly peers: Array<Peer> = [];
 
   constructor(
-    @inject('IHashService') private readonly hashService: IHashService,
-    @injectAll('IPeerStrategy') private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
+    @inject('IHashService')
+    private readonly hashService: IHashService,
+
+    @injectAll('IPeerStrategy')
+    private readonly peerDiscoveryStrategies: Array<IPeerStrategy>,
+    @inject(MetaInfoService)
+    private readonly metainfoService: MetaInfoService,
     private readonly pieceManager: PieceManager,
 
     @injectAll('IExtension')
-    private readonly extensions: Array<(w: Wire) => IExtension>,
+    private readonly extensions: InjectedExtension[],
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super();
@@ -109,7 +116,7 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
 
   private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
     for (const extension of this.extensions) {
-      connectedWire.use(extension);
+      connectedWire.use((w) => extension(w, infoIdentifier, this.metainfoService.metainfo));
     }
 
     const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
