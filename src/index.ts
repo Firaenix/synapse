@@ -8,7 +8,7 @@ import path from 'path';
 import { DependencyContainer } from 'tsyringe';
 
 import { Client } from './Client';
-import { BitcoinExtension } from './extensions/Bitcoin';
+import { BitcoinExtension } from './extensions/Bitcoin/Bitcoin';
 import { MetadataExtension } from './extensions/Metadata';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SECP256K1KeyPair } from './models/SECP256K1KeyPair';
@@ -24,7 +24,7 @@ import { StreamDownloadService } from './services/StreamDownloadService';
 import recursiveReadDir from './utils/recursiveReadDir';
 
 export const hasher = new HashService();
-export const signingService = new SigningService([new ED25519SuperCopAlgorithm()]);
+export const signingService = new SigningService([new ED25519SuperCopAlgorithm(), new SECP256K1SignatureAlgorithm(hasher)]);
 export const logger = new ConsoleLogger();
 export const streamDownloader = new StreamDownloadService(logger);
 
@@ -52,7 +52,7 @@ const defaultExtensions = [
     };
   });
 
-  if (process.env.REGEN) {
+  if (process.env.REGEN === 'true') {
     const { publicKey, secretKey } = await signingService.generateKeyPair(SupportedSignatureAlgorithms.ed25519);
 
     const sig = await signingService.sign(Buffer.from('text'), SupportedSignatureAlgorithms.ed25519, Buffer.from(secretKey), Buffer.from(publicKey));
@@ -100,10 +100,11 @@ const defaultExtensions = [
         keyPair: new SECP256K1KeyPair(Buffer.from(seederBitcoinKeys.publicKey.toString(), 'hex'), Buffer.from(seederBitcoinKeys.secretKey.toString(), 'hex'))
       },
       ioc.resolve(SECP256K1SignatureAlgorithm),
+      ioc.resolve('IHashService'),
       ioc.resolve<ILogger>('ILogger')
     );
 
-  if (process.env.SEEDING) {
+  if (process.env.SEEDING === 'true') {
     const instance = new Client({ extensions: [...defaultExtensions, seederBitcoinExtension] });
     instance.addTorrentByMetainfo(metainfoFile, files);
 
@@ -122,10 +123,11 @@ const defaultExtensions = [
         keyPair: new SECP256K1KeyPair(Buffer.from(leecherBitcoinKeys.publicKey.toString(), 'hex'), Buffer.from(leecherBitcoinKeys.secretKey.toString(), 'hex'))
       },
       ioc.resolve(SECP256K1SignatureAlgorithm),
+      ioc.resolve('IHashService'),
       ioc.resolve<ILogger>('ILogger')
     );
 
-  if (process.env.LEECHING) {
+  if (process.env.LEECHING === 'true') {
     try {
       const leechInstance = new Client({ extensions: [...defaultExtensions, leecherBitcoinExtension] });
       const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);

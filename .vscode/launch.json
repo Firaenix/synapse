@@ -28,7 +28,7 @@
       "protocol": "inspector",
       "env": {
         "SEEDING": "true",
-        "REGEN": "true"
+        "REGEN": "false"
         //"LEECHING": "true"
       }
     }

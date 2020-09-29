@@ -60,7 +60,7 @@ export class Peer extends TypedEmitter<PeerEmitter> {
   }
 
   private onHave = (index: number) => {
-    this.logger.log('Peer said that they have this piece', index);
+    this.logger.log(this.wire.wireName, 'Peer said that they have this piece', index);
     this.bitfield?.set(index);
   };
 
