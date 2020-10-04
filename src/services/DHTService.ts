@@ -67,7 +67,7 @@ export class DHTService {
     }, interval);
   };
 
-  public publish = (keyPair: KeyPair, data: Buffer, seq: number) =>
+  public publish = (keyPair: KeyPair, data: Buffer, salt: Buffer | undefined, seq: number) =>
     new Promise<Buffer>((res, reject) => {
       try {
         const dataBuf = Buffer.from(
@@ -75,6 +75,7 @@ export class DHTService {
             id: data
           })
         );
+
         console.log('Data:', dataBuf.toString('hex').substr(0, 16));
         // V must be less than 1000 bytes.
         this.dht.put(
@@ -86,7 +87,8 @@ export class DHTService {
               console.log('Sign Data:', buf.toString('hex').substr(0, 16));
               const signedData = this.ed25519algo.signSync(buf, keyPair.secretKey, keyPair.publicKey);
               return signedData;
-            }
+            },
+            salt
           },
           (err: Error, hash: Buffer) => {
             if (err) {

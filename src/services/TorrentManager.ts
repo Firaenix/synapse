@@ -1,4 +1,3 @@
-import bencode from 'bencode';
 import Bitfield from 'bitfield';
 import stream from 'stream';
 import { inject, injectable } from 'tsyringe';
@@ -56,7 +55,7 @@ export class TorrentManager {
     }
 
     if (this.metainfoService.fileChunks && this.metainfoService.fileChunks.length && keyPair !== undefined) {
-      this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier, 0).then((id) => {
+      this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier, undefined, 0).then((id) => {
         if (!this.metainfoService.infoIdentifier) {
           throw new Error('Info identifier cannot be empty');
         }
@@ -253,8 +252,12 @@ export class TorrentManager {
 
   public updateTorrent = async (keyPair: KeyPair, newTorrent: MetainfoFile) => {
     const nextSeq = this.metainfoService.updatedSequence + 1;
-    const bencodedTorrent = bencode.encode(newTorrent);
-    await this.dhtService.publish(keyPair, bencodedTorrent, nextSeq);
+
+    this.logger.log('Old metainfo infoid:', this.metainfoService.infoIdentifier?.toString('hex'));
+    this.metainfoService.metainfo = newTorrent;
+    this.logger.log('New metainfo infoid:', this.metainfoService.infoIdentifier?.toString('hex'));
+
+    await this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier!, undefined, nextSeq);
   };
 
   private onUpdatedTorrent = () => {};
