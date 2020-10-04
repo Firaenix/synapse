@@ -50,6 +50,7 @@
     "create-torrent": "^4.4.2",
     "ed25519-supercop": "^2.0.1",
     "elliptic": "^6.5.3",
+    "esbuild": "^0.7.9",
     "eslint": "^7.3.1",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-prettier": "^3.1.3",

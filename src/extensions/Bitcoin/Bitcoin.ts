@@ -106,11 +106,14 @@ export class BitcoinExtension extends EventExtension<BitcoinExtensionEvents> imp
     this.infoIdentifier = Buffer.from(infoIdentifier);
     const res = await this.sigAlgo.sign(this.infoIdentifier, this.config.keyPair.secretKey, this.config.keyPair.publicKey);
     this.infoIdentifierSig = res;
+
+    this.logger.error(this.infoIdentifierSig, res);
+
+    this.myOrder = this.generateRandom256Number();
   };
   onExtendedHandshake = (handshake: ExtendedHandshake) => {
     // Generate random number between 0 and 256, will determine script order, if same, try again
-    this.myOrder = this.generateRandom256Number();
-
+    console.log(handshake);
     this.sendExtendedMessage([BitcoinFlags.Handshake, this.myOrder, this.config.keyPair.publicKey, this.infoIdentifierSig, this.tx]);
   };
 

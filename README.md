@@ -20,7 +20,7 @@
 
 ### To Do:
 
-- [ ] Figure out a nice way to handle streaming chunks in order for consumers
+- [x] Figure out a nice way to handle streaming chunks in order for consumers
 
 - [ ] Reduce memory pressure by having the piece buffer be backed by disk
 
@@ -28,13 +28,13 @@
 
 - [ ] Rarest Piece first?
 
-- [ ] Retry logic
+- [x] Retry logic
 
-- [ ] Multiple Peer handling
+- [x] Multiple Peer handling
 
 - [x] Metadata discovery
 
-- [ ] Become seeder after Metadata discovery
+- [x] Become seeder after Metadata discovery
 
 - [ ] Select desired files, not just all files in torrent (Desired Bitfield vs Have Bitfield ?)
 
@@ -57,6 +57,8 @@
 - [ ] Merkel Tree for file pieces hash
 
 - [x] Nice API for accessing torrents on the fly Torrent.stream, yield Torrent.nextPiece()
+
+- [] Split Repo to reduce dependencies
 
 ### Thoughts:
 
