@@ -9,24 +9,28 @@ export class ED25519KeyPair implements KeyPair {
   constructor(publicKey: Buffer, secretKey: Buffer) {
     this.publicKey = publicKey;
     this.secretKey = secretKey;
+
+    if (this.isValidKeyPair() === false) {
+      throw new Error('Not a valid keypair');
+    }
   }
 
-  public isValidKeyPair = async (): Promise<boolean> =>
-    new Promise<boolean>((resolve, reject) => {
+  public static create = async (publicKey: Buffer, secretKey: Buffer) =>
+    new Promise((resolve, reject) => {
       try {
         supercop.ready(() => {
-          try {
-            const msg = Buffer.from('TEST MESSAGE');
-            const sig: Buffer = supercop.sign(msg, this.publicKey, this.secretKey);
-
-            const isVerified: boolean = supercop.verify(sig, msg, this.publicKey);
-            resolve(isVerified);
-          } catch (error) {
-            reject(error);
-          }
+          resolve(new ED25519KeyPair(publicKey, secretKey));
         });
       } catch (error) {
         reject(error);
       }
     });
+
+  public isValidKeyPair = (): boolean => {
+    const msg = Buffer.from('TEST MESSAGE');
+    const sig: Buffer = supercop.sign(msg, this.publicKey, this.secretKey);
+
+    const isVerified: boolean = supercop.verify(sig, msg, this.publicKey);
+    return isVerified;
+  };
 }

@@ -7,29 +7,25 @@ export class SECP256K1KeyPair implements KeyPair {
   public readonly secretKey: Buffer;
 
   constructor(publicKey: Buffer, secretKey: Buffer) {
-    if (this.isValidKeyPairSync(publicKey, secretKey) === false) {
-      throw new Error('Not a valid keypair');
-    }
-
     this.publicKey = publicKey;
     this.secretKey = secretKey;
+
+    if (this.isValidKeyPair() === false) {
+      throw new Error('Not a valid keypair');
+    }
   }
 
-  private isValidKeyPairSync = (publicKey: Buffer, secretKey: Buffer): boolean => {
+  public isValidKeyPair = (): boolean => {
     try {
-      const isValidPrivate = secp256k1.privateKeyVerify(secretKey);
-      const isValidPublic = secp256k1.publicKeyVerify(publicKey);
+      const isValidPrivate = secp256k1.privateKeyVerify(this.secretKey);
+      const isValidPublic = secp256k1.publicKeyVerify(this.publicKey);
 
-      const testPubKey = Buffer.from(secp256k1.publicKeyCreate(secretKey));
-      const isActualPubKey = publicKey.equals(testPubKey);
+      const testPubKey = Buffer.from(secp256k1.publicKeyCreate(this.secretKey));
+      const isActualPubKey = this.publicKey.equals(testPubKey);
       return isValidPrivate && isValidPublic && isActualPubKey;
     } catch (error) {
       console.error(error);
       return false;
     }
-  };
-
-  public isValidKeyPair = async (): Promise<boolean> => {
-    return this.isValidKeyPairSync(this.publicKey, this.secretKey);
   };
 }

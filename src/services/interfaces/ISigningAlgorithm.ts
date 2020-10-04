@@ -15,5 +15,5 @@ export interface KeyPair {
   publicKey: Buffer;
   secretKey: Buffer;
 
-  isValidKeyPair: () => Promise<boolean>;
+  isValidKeyPair: () => boolean;
 }

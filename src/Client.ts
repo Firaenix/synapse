@@ -38,23 +38,6 @@ const defaultSettings: Settings = {
   extensions: defaultExtensions
 };
 
-const registerDependencies = () => {
-  container.register('IHashService', HashService);
-
-  container.register('ISigningService', SigningService);
-
-  container.register('ISigningAlgorithm', ED25519SuperCopAlgorithm);
-  container.register(ED25519SuperCopAlgorithm, ED25519SuperCopAlgorithm);
-
-  container.register('ISigningAlgorithm', SECP256K1SignatureAlgorithm);
-  container.register(SECP256K1SignatureAlgorithm, SECP256K1SignatureAlgorithm);
-
-  container.register('IPeerStrategy', ClassicNetworkPeerStrategy);
-  container.register('IPeerStrategy', WebRTCPeerStrategy);
-};
-
-registerDependencies();
-
 /**
  * Manages the instances of torrents we want to download and seed
  * Client -> Torrent -> Peers
@@ -161,6 +144,22 @@ export class Client {
     return requestContainer;
   };
 
+  public static registerDependencies = async () => {
+    container.register('IHashService', HashService);
+
+    container.register('ISigningService', SigningService);
+
+    const superCopAlgo = await ED25519SuperCopAlgorithm.build();
+    container.registerInstance('ISigningAlgorithm', superCopAlgo);
+    container.registerInstance(ED25519SuperCopAlgorithm, superCopAlgo);
+
+    container.register('ISigningAlgorithm', SECP256K1SignatureAlgorithm);
+    container.register(SECP256K1SignatureAlgorithm, SECP256K1SignatureAlgorithm);
+
+    container.register('IPeerStrategy', ClassicNetworkPeerStrategy);
+    container.register('IPeerStrategy', WebRTCPeerStrategy);
+  };
+
   private registerExtensions = async (requestContainer: DependencyContainer): Promise<DependencyContainer> => {
     const infoIdentifier = requestContainer.resolve(MetaInfoService).infoIdentifier;
     if (!infoIdentifier) {
@@ -172,25 +171,6 @@ export class Client {
         useValue: extension(requestContainer)
       });
     }
-
-    // const keyPair = await requestContainer.resolve(SECP256K1SignatureAlgorithm).generateKeyPair();
-
-    // requestContainer.register('IExtension', {
-    //   useFactory: (ioc) => (w: Wire) =>
-    //     new BitcoinExtension(
-    //       w,
-    //       {
-    //         getPrice: (index, offset, length) => {
-    //           // 1sat for every 10KB
-    //           const kb = length / 1000;
-    //           return Math.ceil(kb);
-    //         },
-    //         keyPair
-    //       },
-    //       ioc.resolve(SECP256K1SignatureAlgorithm),
-    //       ioc.resolve<ILogger>('ILogger')
-    //     )
-    // });
 
     return requestContainer;
   };

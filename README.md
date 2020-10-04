@@ -18,6 +18,10 @@
 
 - When saving data to a DHT it is SHA1 hashed as a limitation of bittorrent-dht. So when we use an infosig, it becomes SHA1(YOUR_SIG(YOUR_HASH(METAINFO))) or for infohash its SHA1(YOUR_HASH(METAINFO))
 
+### @hyperswarm/dht
+
+- Cannot use afaik, will not run in browser as it relies on sodium-native.
+
 ### To Do:
 
 - [x] Figure out a nice way to handle streaming chunks in order for consumers

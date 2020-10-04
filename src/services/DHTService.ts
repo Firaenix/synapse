@@ -1,8 +1,9 @@
-import DHT from '@hyperswarm/dht';
+import '../../typings/bittorrent-dht';
+
+import DHT from 'bittorrent-dht';
 import { inject, injectable } from 'tsyringe';
 
 import { IHashService } from '../../lib/src/services/HashService';
-import { SupportedHashAlgorithms } from '../models/SupportedHashAlgorithms';
 import { ILogger } from './interfaces/ILogger';
 import { KeyPair } from './interfaces/ISigningAlgorithm';
 import { ED25519SuperCopAlgorithm } from './signaturealgorithms/ED25519SuperCopAlgorithm';
@@ -14,22 +15,18 @@ export class DHTService {
   constructor(private readonly ed25519algo: ED25519SuperCopAlgorithm, @inject('IHashService') private readonly hashService: IHashService, @inject('ILogger') private readonly logger: ILogger) {
     try {
       this.dht = new DHT({
-        verify: async (sig, msg, pubkey) => {
-          try {
-            const verify = await this.ed25519algo.verify(msg, sig, pubkey);
-            return verify;
-          } catch (error) {
-            console.error(error);
-          }
-        }
+        host: true,
+        verify: (sig, msg, pubkey) => this.ed25519algo.verifySync(msg, sig, pubkey)
+        // hash: (buf) => this.hashService.hash(buf, SupportedHashAlgorithms.sha256)
       });
 
       this.dht.listen(() => {
-        this.dht.addNode({ host: '127.0.0.1', port: this.dht.address().port });
+        // this.dht.addNode({ host: '127.0.0.1', port: this.dht.address().port });
         // dht.once('node', ready)
       });
     } catch (error) {
       console.error(error);
+      throw error;
     }
   }
 
@@ -39,7 +36,7 @@ export class DHTService {
    */
   public get = (key: Buffer) =>
     new Promise<{ signature: Buffer; value: Buffer }>((res, reject) => {
-      this.dht.get(key, (err: Error, data) => {
+      this.dht.get(key, undefined, (err: Error, data) => {
         if (err) {
           return reject(err);
         }
@@ -49,7 +46,7 @@ export class DHTService {
         }
 
         this.logger.log('GET', data);
-        return res({ signature: data.sig, value: data.v });
+        return res({ signature: data.sig!, value: data.v });
       });
     });
 
@@ -73,21 +70,21 @@ export class DHTService {
   public publish = (keyPair: KeyPair, data: Buffer, seq: number) =>
     new Promise<Buffer>((res, reject) => {
       try {
-        console.log('Data:', data.toString('hex').substr(0, 16));
-
-        const pubKeyHash = this.hashService.hash(keyPair.publicKey, SupportedHashAlgorithms.sha1);
-
+        const dataBuf = Buffer.from(
+          JSON.stringify({
+            id: data
+          })
+        );
+        console.log('Data:', dataBuf.toString('hex').substr(0, 16));
         // V must be less than 1000 bytes.
         this.dht.put(
           {
-            v: {
-              id: data
-            },
+            v: dataBuf,
             k: keyPair.publicKey,
             seq,
-            sign: async (buf) => {
+            sign: (buf: Buffer) => {
               console.log('Sign Data:', buf.toString('hex').substr(0, 16));
-              const signedData = await this.ed25519algo.sign(buf, keyPair.secretKey, keyPair.publicKey);
+              const signedData = this.ed25519algo.signSync(buf, keyPair.secretKey, keyPair.publicKey);
               return signedData;
             }
           },
@@ -96,7 +93,7 @@ export class DHTService {
               return reject(err);
             }
 
-            return res(pubKeyHash);
+            return res(hash);
           }
         );
       } catch (error) {

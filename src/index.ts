@@ -19,11 +19,14 @@ import { StreamDownloadService } from './services/StreamDownloadService';
 import recursiveReadDir from './utils/recursiveReadDir';
 
 export const hasher = new HashService();
-export const signingService = new SigningService([new ED25519SuperCopAlgorithm(), new SECP256K1SignatureAlgorithm(hasher)]);
+
 export const logger = new ConsoleLogger();
 export const streamDownloader = new StreamDownloadService(logger);
 
 (async () => {
+  await Client.registerDependencies();
+  const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)]);
+
   const readPath = path.join(__dirname, '..', 'torrents');
 
   const paths = await recursiveReadDir(readPath);
@@ -124,3 +127,8 @@ export const streamDownloader = new StreamDownloadService(logger);
     }
   }
 })();
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.log('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Application specific logging, throwing an error, or other logic here
+});
