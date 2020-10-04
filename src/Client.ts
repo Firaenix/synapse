@@ -1,10 +1,13 @@
+import Wire from '@firaenix/bittorrent-protocol';
 import { container, DependencyContainer } from 'tsyringe';
 
+import { MetadataExtension } from './extensions/Metadata';
 import { DiskFile } from './models/DiskFile';
 import { InjectedExtension } from './models/InjectedExtensions';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { HashService, IHashService } from './services/HashService';
+import { ILogger } from './services/interfaces/ILogger';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { ConsoleLogger } from './services/LogLevelLogger';
@@ -25,9 +28,13 @@ export interface Settings {
   extensions: ((ioc: DependencyContainer) => InjectedExtension)[];
 }
 
+const defaultExtensions = [
+  (ioc: DependencyContainer) => (w: Wire, infoId: Buffer, metainfo?: MetainfoFile) =>
+    new MetadataExtension(w, infoId, metainfo, ioc.resolve<IHashService>('IHashService'), ioc.resolve<ISigningService>('ISigningService'), ioc.resolve<ILogger>('ILogger'))
+];
+
 const defaultSettings: Settings = {
-  // Add Bitcoin, ECDH
-  extensions: []
+  extensions: defaultExtensions
 };
 
 const registerDependencies = () => {
