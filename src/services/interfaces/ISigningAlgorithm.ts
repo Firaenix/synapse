@@ -14,4 +14,6 @@ export interface ISigningAlgorithm {
 export interface KeyPair {
   publicKey: Buffer;
   secretKey: Buffer;
+
+  isValidKeyPair: () => Promise<boolean>;
 }

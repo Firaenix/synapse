@@ -11,6 +11,7 @@ import { SupportedSignatureAlgorithms } from './interfaces/ISigningAlgorithm';
 @scoped(Lifecycle.ResolutionScoped)
 export class MetaInfoService {
   private _metainfo?: MetainfoFile;
+  public updatedSequence = 0;
 
   constructor(metainfo: MetainfoFile | SignedMetainfoFile | undefined, public fileChunks: Array<Buffer>) {
     this.metainfo = metainfo;

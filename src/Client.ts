@@ -6,9 +6,10 @@ import { DiskFile } from './models/DiskFile';
 import { InjectedExtension } from './models/InjectedExtensions';
 import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+import { DHTService } from './services/DHTService';
 import { HashService, IHashService } from './services/HashService';
 import { ILogger } from './services/interfaces/ILogger';
-import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
+import { KeyPair, SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
 import { ISigningService } from './services/interfaces/ISigningService';
 import { ConsoleLogger } from './services/LogLevelLogger';
 import { MetaInfoService } from './services/MetaInfoService';
@@ -94,17 +95,22 @@ export class Client {
    * @param {MetainfoFile} metainfo
    * @param {Array<DiskFile> | undefined} files
    */
-  public addTorrentByMetainfo = async (metainfo: MetainfoFile, files: Array<DiskFile> = []) => {
-    let requestContainer = this.registerScopedDependencies(metainfo, files);
+  public addTorrentByMetainfo = async (metainfo: MetainfoFile, keyPair?: KeyPair, files: Array<DiskFile> = []) => {
+    try {
+      let requestContainer = this.registerScopedDependencies(metainfo, files);
 
-    requestContainer = await this.registerExtensions(requestContainer);
+      requestContainer = await this.registerExtensions(requestContainer);
 
-    const torrentManager = requestContainer.resolve(TorrentManager);
+      const torrentManager = requestContainer.resolve(TorrentManager);
 
-    torrentManager.addTorrent(metainfo);
+      torrentManager.addTorrent(metainfo, keyPair);
 
-    this.torrents.push(torrentManager);
-    return torrentManager;
+      this.torrents.push(torrentManager);
+      return torrentManager;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   };
 
   public addTorrentByInfoHash = async (infoHash: Buffer) => {
@@ -142,6 +148,8 @@ export class Client {
     requestContainer.register(PeerManager, PeerManager);
 
     requestContainer.register('ITorrentDiscovery', TorrentDiscovery);
+
+    requestContainer.registerSingleton(DHTService);
 
     let fileChunks: Array<Buffer> = [];
     if (metainfo) {

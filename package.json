@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "ts-node ./src/index.ts",
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc",
+    "build-browser": "tsc && browserify ./lib/src/Client.js -o ./dist/client-browser.js",
+    "test-browser": "npx parcel ./dist/index.html",
+    "keys": "ts-node ./src/secp256k1-to-ed25519.ts"
   },
   "private": true,
   "keywords": [
@@ -48,7 +52,6 @@
     "chalk": "^4.1.0",
     "chokidar": "^3.4.2",
     "create-torrent": "^4.4.2",
-    "ed25519-supercop": "^2.0.1",
     "elliptic": "^6.5.3",
     "esbuild": "^0.7.9",
     "eslint": "^7.3.1",
@@ -76,6 +79,7 @@
   },
   "devDependencies": {
     "@types/jest": "^26.0.10",
+    "esmify": "^2.1.1",
     "ts-mockito": "^2.6.1",
     "ts-node": "^8.10.2"
   }

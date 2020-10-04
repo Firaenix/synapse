@@ -1,3 +1,6 @@
 node_modules
 torrents
 *.log
+.cache
+dist
+lib
