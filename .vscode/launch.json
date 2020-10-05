@@ -27,9 +27,9 @@
       "cwd": "${workspaceRoot}",
       "protocol": "inspector",
       "env": {
-        "SEEDING": "true",
-        "REGEN": "true"
-        //"LEECHING": "true"
+        "SEEDING": "true"
+        // "REGEN": "true"
+        // "LEECHING": "true"
       }
     }
   ]

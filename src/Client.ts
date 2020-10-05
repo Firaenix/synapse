@@ -49,7 +49,11 @@ export class Client {
   private readonly settings: Settings;
 
   constructor(settings: Settings = defaultSettings) {
-    this.settings = settings;
+    this.settings = {
+      ...defaultSettings,
+      ...settings,
+      extensions: [...settings.extensions, ...defaultSettings.extensions]
+    };
     this.hashService = container.resolve('IHashService');
     this.signingService = container.resolve('ISigningService');
   }

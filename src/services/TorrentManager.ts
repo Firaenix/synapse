@@ -54,18 +54,18 @@ export class TorrentManager {
       throw new Error('Info identifier cannot be empty');
     }
 
-    if (this.metainfoService.fileChunks && this.metainfoService.fileChunks.length && keyPair !== undefined) {
-      this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier, undefined, 0).then((id) => {
-        if (!this.metainfoService.infoIdentifier) {
-          throw new Error('Info identifier cannot be empty');
-        }
-        this.metainfoService.updatedSequence = 0;
+    // if (this.metainfoService.fileChunks && this.metainfoService.fileChunks.length && keyPair !== undefined) {
+    //   this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier, undefined, 0).then((id) => {
+    //     if (!this.metainfoService.infoIdentifier) {
+    //       throw new Error('Info identifier cannot be empty');
+    //     }
+    //     this.metainfoService.updatedSequence = 0;
 
-        this.dhtService.subscribe(id, 1000, (data) => {
-          this.logger.info('Got new data', data.toString('hex'));
-        });
-      });
-    }
+    //     this.dhtService.subscribe(id, 1000, (data) => {
+    //       this.logger.info('Got new data', data.toString('hex'));
+    //     });
+    //   });
+    // }
 
     this.peerManager.searchByInfoIdentifier(this.metainfoService.infoIdentifier);
   };

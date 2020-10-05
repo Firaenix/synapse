@@ -3,9 +3,10 @@ import { DiskFile } from '../src/models/DiskFile';
 import { SupportedHashAlgorithms } from '../src/models/SupportedHashAlgorithms';
 
 describe('Seeder/Leecher Client Integration Tests', () => {
-  let seederClient = new Client();
-  let leecherClient = new Client();
+  let seederClient: Client;
+  let leecherClient: Client;
   beforeAll(async () => {
+    await Client.registerDependencies();
     seederClient = new Client();
     leecherClient = new Client();
   });
@@ -19,7 +20,7 @@ describe('Seeder/Leecher Client Integration Tests', () => {
       };
 
       const metainfo = await seederClient.generateMetaInfo([file], 'testtorrent', SupportedHashAlgorithms.sha256);
-      const seedTorrent = seederClient.addTorrentByMetainfo(metainfo, [file]);
+      const seedTorrent = seederClient.addTorrentByMetainfo(metainfo, undefined, [file]);
 
       const leechTorrent = await leecherClient.addTorrentByInfoHash(metainfo.infohash);
 

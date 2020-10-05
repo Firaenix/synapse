@@ -20,10 +20,7 @@ export class DHTService {
         // hash: (buf) => this.hashService.hash(buf, SupportedHashAlgorithms.sha256)
       });
 
-      this.dht.listen(() => {
-        // this.dht.addNode({ host: '127.0.0.1', port: this.dht.address().port });
-        // dht.once('node', ready)
-      });
+      this.dht.listen(() => {});
     } catch (error) {
       console.error(error);
       throw error;
@@ -67,24 +64,22 @@ export class DHTService {
     }, interval);
   };
 
-  public publish = (keyPair: KeyPair, data: Buffer, salt: Buffer | undefined, seq: number) =>
+  public publish = (keyPair: KeyPair, newIdentifier: Buffer, salt: Buffer | undefined, seq: number) =>
     new Promise<Buffer>((res, reject) => {
       try {
         const dataBuf = Buffer.from(
           JSON.stringify({
-            id: data
+            id: newIdentifier,
+            pub: keyPair.publicKey.toString('hex')
           })
         );
 
-        console.log('Data:', dataBuf.toString('hex').substr(0, 16));
-        // V must be less than 1000 bytes.
         this.dht.put(
           {
             v: dataBuf,
             k: keyPair.publicKey,
             seq,
             sign: (buf: Buffer) => {
-              console.log('Sign Data:', buf.toString('hex').substr(0, 16));
               const signedData = this.ed25519algo.signSync(buf, keyPair.secretKey, keyPair.publicKey);
               return signedData;
             },

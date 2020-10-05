@@ -247,7 +247,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
     this.myBitfield.set(index);
 
     if (index === this.metaPieceCount - 1) {
-      this.logger.log('GOT ALL PIECES! YAY LETS CHECK VALIDITY');
+      this.logger.log('GOT ALL PIECES! LETS CHECK VALIDITY');
       const metainfo: MetainfoFile = bencode.decode(this.reconstructedBuffer);
 
       await this.isValidMetainfo(metainfo);
@@ -276,7 +276,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
     }
 
     if (metainfo.infohash.equals(Buffer.from(this.infoIdentifier))) {
-      this.logger.log('YAY! it was an info hash and it matches, now to calculate infohash and see if still matches');
+      this.logger.log('METAINFO GET! it was an info hash and it matches, now to calculate infohash and see if still matches');
       if (this.isValidInfoHash(metainfo, this.infoIdentifier) === false) {
         throw new Error('Something is fucked with the metainfo we recieved');
       }
@@ -285,7 +285,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
     }
 
     if (isSignedMetainfo(metainfo) && metainfo.infosig.equals(Buffer.from(this.infoIdentifier))) {
-      this.logger.log('YAY! it was an info sig and it matches, now to calculate info hash and compare with infosig to see if its a valid signature');
+      this.logger.log('SIGNED METAINFO GET! it was an info sig and it matches, now to calculate info hash and compare with infosig to see if its a valid signature');
 
       const isValidSig = await this.isValidInfoSig(metainfo, this.infoIdentifier);
       if (isValidSig === false) {
