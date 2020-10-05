@@ -2,7 +2,6 @@ import '../typings';
 import 'reflect-metadata';
 
 import bencode from 'bencode';
-import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 
@@ -84,37 +83,37 @@ export const streamDownloader = new StreamDownloadService(logger);
       const torrentManager = await instance.addTorrentByMetainfo(metainfoFile, keyPair, files);
 
       logger.log('Seeding');
-      let changeVersion = 0;
-      chokidar.watch(readPath).on('all', async (name, path, stats) => {
-        try {
-          const changedPaths = await recursiveReadDir(readPath);
-          const changedFiles = CreateFilesFromPaths(changedPaths);
+      // let changeVersion = 0;
+      // chokidar.watch(readPath).on('all', async (name, path, stats) => {
+      //   try {
+      //     const changedPaths = await recursiveReadDir(readPath);
+      //     const changedFiles = CreateFilesFromPaths(changedPaths);
 
-          const { publicKey, secretKey } = keyPair;
+      //     const { publicKey, secretKey } = keyPair;
 
-          const seederMetainfo = await new Client().generateMetaInfo(
-            changedFiles,
-            'downoaded_torrents',
-            (await import('./models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
-            Buffer.from(secretKey),
-            Buffer.from(publicKey)
-          );
+      //     const seederMetainfo = await new Client().generateMetaInfo(
+      //       changedFiles,
+      //       'downoaded_torrents',
+      //       (await import('./models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
+      //       Buffer.from(secretKey),
+      //       Buffer.from(publicKey)
+      //     );
 
-          if (seederMetainfo.infohash.equals(metainfoFile.infohash)) {
-            console.log('Generated same metainfo, ignore');
-            return;
-          }
+      //     if (seederMetainfo.infohash.equals(metainfoFile.infohash)) {
+      //       console.log('Generated same metainfo, ignore');
+      //       return;
+      //     }
 
-          console.log('Path change', name, path, stats);
-          const infoSigSig = await signingService.sign(seederMetainfo.infosig, SupportedSignatureAlgorithms.ed25519, secretKey, publicKey);
+      //     console.log('Path change', name, path, stats);
+      //     const infoSigSig = await signingService.sign(seederMetainfo.infosig, SupportedSignatureAlgorithms.ed25519, secretKey, publicKey);
 
-          changeVersion++;
-          fs.writeFileSync(`./mymetainfo_${changeVersion}.ben`, bencode.encode(seederMetainfo));
-          updateManager.broadcastUpdate(seederMetainfo.infosig, publicKey, infoSigSig);
-        } catch (error) {
-          console.error(error);
-        }
-      });
+      //     changeVersion++;
+      //     fs.writeFileSync(`./mymetainfo_${changeVersion}.ben`, bencode.encode(seederMetainfo));
+      //     updateManager.broadcastUpdate(seederMetainfo.infosig, publicKey, infoSigSig);
+      //   } catch (error) {
+      //     console.error(error);
+      //   }
+      // });
     }
 
     if (process.env.LEECHING === 'true') {

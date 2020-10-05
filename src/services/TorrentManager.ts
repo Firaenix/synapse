@@ -4,7 +4,6 @@ import { inject, injectable } from 'tsyringe';
 import util from 'util';
 
 import { MetainfoFile } from '../models/MetainfoFile';
-import { DHTService } from './DHTService';
 import { IHashService } from './HashService';
 import { ILogger } from './interfaces/ILogger';
 import { KeyPair } from './interfaces/ISigningAlgorithm';
@@ -29,7 +28,6 @@ export class TorrentManager {
     private readonly peerManager: PeerManager,
     private readonly pieceManager: PieceManager,
     private readonly metainfoService: MetaInfoService,
-    private readonly dhtService: DHTService,
     @inject('ILogger')
     private readonly logger: ILogger
   ) {
@@ -53,19 +51,6 @@ export class TorrentManager {
     if (!this.metainfoService.infoIdentifier) {
       throw new Error('Info identifier cannot be empty');
     }
-
-    // if (this.metainfoService.fileChunks && this.metainfoService.fileChunks.length && keyPair !== undefined) {
-    //   this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier, undefined, 0).then((id) => {
-    //     if (!this.metainfoService.infoIdentifier) {
-    //       throw new Error('Info identifier cannot be empty');
-    //     }
-    //     this.metainfoService.updatedSequence = 0;
-
-    //     this.dhtService.subscribe(id, 1000, (data) => {
-    //       this.logger.info('Got new data', data.toString('hex'));
-    //     });
-    //   });
-    // }
 
     this.peerManager.searchByInfoIdentifier(this.metainfoService.infoIdentifier);
   };
@@ -249,16 +234,4 @@ export class TorrentManager {
 
     return this.metainfoService.metainfo;
   }
-
-  public updateTorrent = async (keyPair: KeyPair, newTorrent: MetainfoFile) => {
-    const nextSeq = this.metainfoService.updatedSequence + 1;
-
-    this.logger.log('Old metainfo infoid:', this.metainfoService.infoIdentifier?.toString('hex'));
-    this.metainfoService.metainfo = newTorrent;
-    this.logger.log('New metainfo infoid:', this.metainfoService.infoIdentifier?.toString('hex'));
-
-    await this.dhtService.publish(keyPair, this.metainfoService.infoIdentifier!, undefined, nextSeq);
-  };
-
-  private onUpdatedTorrent = () => {};
 }
