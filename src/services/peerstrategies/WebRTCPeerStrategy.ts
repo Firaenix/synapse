@@ -55,8 +55,8 @@ export class WebRTCPeerStrategy extends TypedEmitter<PeerStrategyEvents> impleme
     });
   };
 
-  public stopDiscovery = (infoHash: Buffer) => {
-    this.swarm.leave(infoHash);
+  public stopDiscovery = async (infoHash: Buffer) => {
     this.logger.info('Leaving channel', infoHash, this.id);
+    this.swarm.leave(infoHash);
   };
 }

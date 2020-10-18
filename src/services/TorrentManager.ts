@@ -15,6 +15,7 @@ import { PieceManager } from './PieceManager';
 @injectable()
 export class TorrentManager {
   public downloadStream: stream.Readable;
+  public readonly id = Math.random().toString(36).substr(2, 9);
 
   /**
    * if files is undefined, you are a leech, seeders have all the data
@@ -42,17 +43,34 @@ export class TorrentManager {
     this.peerManager.on(PeerManagerEvents.got_piece, this.onPiece);
   }
 
-  public addTorrent = (metaInfo: MetainfoFile, keyPair?: KeyPair) => {
+  public addTorrent = (metaInfo: MetainfoFile, keyPair?: KeyPair, fileChunks?: Array<Buffer>) => {
     if (!metaInfo) {
       throw new Error('Cannot add empty metainfo');
     }
     this.metainfoService.metainfo = metaInfo;
+
+    if (fileChunks) {
+      this.metainfoService.fileChunks = fileChunks;
+    }
 
     if (!this.metainfoService.infoIdentifier) {
       throw new Error('Info identifier cannot be empty');
     }
 
     this.peerManager.searchByInfoIdentifier(this.metainfoService.infoIdentifier);
+  };
+
+  public stopTorrent = async () => {
+    if (!this.metainfoService.infoIdentifier) {
+      throw new Error('No infoidentifier exists. Start a torrent before you stop it.');
+    }
+
+    await this.peerManager.stopDiscovery(this.metainfoService.infoIdentifier);
+    this.pieceManager.clearPieces();
+
+    this.metainfoService.metainfo = undefined;
+    this.downloadStream.push(null);
+    this.downloadStream.destroy();
   };
 
   private verifyIsFinishedDownloading = () => {
@@ -203,7 +221,7 @@ export class TorrentManager {
       }
 
       if (!this.isPieceValid(pieceIndex, pieceOffset, pieceBuf)) {
-        this.logger.error('Piece is not valid, ask another peer for it', pieceIndex, pieceOffset, pieceBuf.toString('hex'));
+        this.logger.error('Piece is not valid, ask another peer for it', pieceIndex, pieceOffset);
         throw new Error('PIECE IS NOT VALID');
       }
 

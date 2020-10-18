@@ -64,6 +64,12 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     }
   };
 
+  public stopDiscovery = async (infoIdentifier: Buffer) => {
+    const infoHashHash = this.hashService.hash(infoIdentifier, SupportedHashAlgorithms.sha256);
+
+    await Promise.all(this.peerDiscoveryStrategies.map((x) => x.stopDiscovery(infoHashHash)));
+  };
+
   /**
    * Broadcasts to all peers that we are no longer interested in downloading.
    */

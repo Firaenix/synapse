@@ -2,13 +2,14 @@ import '../typings';
 import 'reflect-metadata';
 
 import bencode from 'bencode';
+import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 
 import { Client } from './Client';
-import { UpdateExtension, UpdateManager } from './extensions/Update/UpdateExtension';
 import { ED25519KeyPair } from './models/ED25519KeyPair';
 import { SignedMetainfoFile } from './models/MetainfoFile';
+import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { DHTService } from './services/DHTService';
 import { HashService } from './services/HashService';
 import { SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
@@ -29,6 +30,7 @@ export const streamDownloader = new StreamDownloadService(logger);
   try {
     await Client.registerDependencies();
     const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)]);
+    const dhtService = new DHTService(await ED25519SuperCopAlgorithm.build(), hasher, logger);
 
     const readPath = path.join(__dirname, '..', 'torrents');
 
@@ -62,68 +64,73 @@ export const streamDownloader = new StreamDownloadService(logger);
     const publicKeyBuffer = Buffer.from(deserialisedKeys.publicKey.toString(), 'hex');
     const secretKeyBuffer = Buffer.from(deserialisedKeys.secretKey.toString(), 'hex');
     const keyPair = new ED25519KeyPair(publicKeyBuffer, secretKeyBuffer);
-    if ((await keyPair.isValidKeyPair()) === false) {
+    if (keyPair.isValidKeyPair() === false) {
       throw new Error('Bail out, not reading keys correctly.');
     }
 
     if (process.env.SEEDING === 'true') {
-      const updateManager = new UpdateManager();
-      const onUpdateExtensionCreated = (ext: UpdateExtension) => {
-        updateManager.addPeerExt(ext);
-      };
+      // const updateManager = new UpdateManager();
+      // const onUpdateExtensionCreated = (ext: UpdateExtension) => {
+      //   updateManager.addPeerExt(ext);
+      // };
 
       // const seederBitcoinExtension = await GenerateBitcoinExtension('./seedkeys.ben');
-      const instance = new Client({
-        extensions: [
-          (ioc) => (w, infoId, metainfo) => {
-            return new UpdateExtension(w, infoId, metainfo, ioc.resolve(DHTService)).on('created', onUpdateExtensionCreated);
-          }
-        ]
-      });
-      const torrentManager = await instance.addTorrentByMetainfo(metainfoFile, keyPair, files);
+      const seederClient = new Client();
+      let torrentManager = await seederClient.addTorrentByMetainfo(metainfoFile, keyPair, files);
+      await dhtService.publish(keyPair, metainfoFile.infosig, undefined, 0);
 
       logger.log('Seeding');
-      // let changeVersion = 0;
-      // chokidar.watch(readPath).on('all', async (name, path, stats) => {
-      //   try {
-      //     const changedPaths = await recursiveReadDir(readPath);
-      //     const changedFiles = CreateFilesFromPaths(changedPaths);
+      let changeVersion = 0;
+      chokidar.watch(readPath).on('all', async (name, path, stats) => {
+        try {
+          const changedPaths = await recursiveReadDir(readPath);
+          const changedFiles = CreateFilesFromPaths(changedPaths);
 
-      //     const { publicKey, secretKey } = keyPair;
+          const { publicKey, secretKey } = keyPair;
 
-      //     const seederMetainfo = await new Client().generateMetaInfo(
-      //       changedFiles,
-      //       'downoaded_torrents',
-      //       (await import('./models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
-      //       Buffer.from(secretKey),
-      //       Buffer.from(publicKey)
-      //     );
+          const seederMetainfo = await new Client().generateMetaInfo(
+            changedFiles,
+            'downoaded_torrents',
+            (await import('./models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
+            Buffer.from(secretKey),
+            Buffer.from(publicKey)
+          );
 
-      //     if (seederMetainfo.infohash.equals(metainfoFile.infohash)) {
-      //       console.log('Generated same metainfo, ignore');
-      //       return;
-      //     }
+          if (seederMetainfo.infohash.equals(torrentManager.metainfo.infohash)) {
+            console.log('Generated same metainfo, ignore');
+            return;
+          }
 
-      //     console.log('Path change', name, path, stats);
-      //     const infoSigSig = await signingService.sign(seederMetainfo.infosig, SupportedSignatureAlgorithms.ed25519, secretKey, publicKey);
+          console.log('Path change', name, path, stats);
 
-      //     changeVersion++;
-      //     fs.writeFileSync(`./mymetainfo_${changeVersion}.ben`, bencode.encode(seederMetainfo));
-      //     updateManager.broadcastUpdate(seederMetainfo.infosig, publicKey, infoSigSig);
-      //   } catch (error) {
-      //     console.error(error);
-      //   }
-      // });
+          changeVersion++;
+          fs.writeFileSync(`./mymetainfo_${changeVersion}.ben`, bencode.encode(seederMetainfo));
+
+          torrentManager = await seederClient.updateTorrent(torrentManager, seederMetainfo, keyPair, changedFiles);
+          await dhtService.publish(keyPair, seederMetainfo.infosig, undefined, changeVersion);
+        } catch (error) {
+          console.error(error);
+        }
+      });
     }
 
     if (process.env.LEECHING === 'true') {
       // const leecherBitcoinExtension = await GenerateBitcoinExtension('./leechkeys.ben');
       try {
-        const leechInstance = new Client({ extensions: [(ioc) => (w, id, meta) => new UpdateExtension(w, id, meta, ioc.resolve(DHTService))] });
-        const torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
+        const leechInstance = new Client();
+        let torrent = await leechInstance.addTorrentByInfoSig(metainfoFile.infosig);
+        streamDownloader.download(torrent, 'downloads');
         logger.log('Leeching');
 
-        streamDownloader.download(torrent, 'downloads');
+        const pubKeyHash = hasher.hash(Buffer.from(metainfoFile['pub key']), SupportedHashAlgorithms.sha1);
+
+        dhtService.subscribe(pubKeyHash, 1000, async (data, cancel) => {
+          const oldTorrent = torrent;
+
+          torrent = await leechInstance.addTorrentByInfoSig(Buffer.from(data.v));
+          streamDownloader.download(torrent, `downloads-${data.seq}`);
+          await oldTorrent.stopTorrent();
+        });
       } catch (error) {
         logger.fatal(error);
       }

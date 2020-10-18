@@ -33,6 +33,11 @@ export class PieceManager {
     }
   }
 
+  public clearPieces = () => {
+    this.bitfield = new Bitfield();
+    this.metainfoService.fileChunks = [];
+  };
+
   public addPeerBitfield = (peerId: string, recievedBitfield: Bitfield) => {
     this.peerBitfields[peerId] = recievedBitfield;
   };

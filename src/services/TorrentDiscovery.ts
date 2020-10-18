@@ -44,9 +44,7 @@ export class TorrentDiscovery implements ITorrentDiscovery {
           } catch (error) {
             reject(error);
           } finally {
-            for (const strat of this.peerStrategies) {
-              strat.stopDiscovery(infoHash);
-            }
+            Promise.all(this.peerStrategies.map((x) => x.stopDiscovery(infoHash)));
           }
         });
       }

@@ -99,7 +99,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
       }
     }
 
-    this.logger.info(wire.wireName, 'Created MetadataExtension');
+    this.logger.info(wire.wireName, metainfo?.infohash.toString('hex'), 'Created MetadataExtension');
   }
 
   private get metadataBuffer(): Buffer | undefined {
@@ -292,6 +292,7 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
         throw new Error('Something is fucked with the metainfo we recieved');
       }
 
+      this.logger.log('Signature matches infoIdentifier, this is a valid metainfo');
       return true;
     }
 

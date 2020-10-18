@@ -19,9 +19,9 @@ export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents>
     logger.info('Creating ClassicNetworkPeerStrategy', this.id);
     this.swarm = hyperswarm();
   }
-  public stopDiscovery = (infoHash: Buffer) => {
-    this.swarm.leave(infoHash);
+  public stopDiscovery = async (infoHash: Buffer) => {
     this.logger.info('Leaving channel', infoHash, this.id);
+    this.swarm.leave(infoHash);
   };
 
   public startDiscovery = (infoHash: Buffer) => {

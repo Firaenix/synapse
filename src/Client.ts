@@ -4,7 +4,7 @@ import { container, DependencyContainer } from 'tsyringe';
 import { MetadataExtension } from './extensions/Metadata';
 import { DiskFile } from './models/DiskFile';
 import { InjectedExtension } from './models/InjectedExtensions';
-import { MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
+import { isSignedMetainfo, MetainfoFile, SignedMetainfoFile } from './models/MetainfoFile';
 import { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
 import { DHTService } from './services/DHTService';
 import { HashService, IHashService } from './services/HashService';
@@ -43,7 +43,7 @@ const defaultSettings: Settings = {
  * Client -> Torrent -> Peers
  */
 export class Client {
-  private readonly torrents: Array<TorrentManager> = [];
+  private readonly torrents: Map<Buffer, TorrentManager> = new Map();
   private hashService: IHashService;
   private readonly signingService: ISigningService;
   private readonly settings: Settings;
@@ -77,6 +77,38 @@ export class Client {
     return metainfo;
   }
 
+  public stopAllTorrents = async () => {
+    for await (const [_, torrent] of this.torrents.entries()) {
+      await torrent.stopTorrent();
+    }
+  };
+
+  /**
+   * Stop seeding the existing torrent and replace with a new metainfo file.
+   * Start seeding that torrent.
+   * @param {TorrentManager} currentTorrent
+   * @param {SignedMetainfoFile} metainfo
+   * @param {KeyPair} keyPair
+   * @param {Array<DiskFile>} files
+   */
+  public updateTorrent = async (currentTorrent: TorrentManager, metainfo: SignedMetainfoFile, keyPair?: KeyPair, files: Array<DiskFile> = []) => {
+    if (!isSignedMetainfo(currentTorrent.metainfo)) {
+      throw new Error('Must be a signed metainfo file to allow updates');
+    }
+
+    const existingTorrent = this.torrents.get(currentTorrent.metainfo.infosig);
+    if (!existingTorrent) {
+      throw new Error(`No torrent exists with that id: ${currentTorrent.id}`);
+    }
+
+    // await existingTorrent.stopTorrent();
+
+    const newTorrent = await this.addTorrentByMetainfo(metainfo, keyPair, files);
+
+    this.torrents.delete(currentTorrent.metainfo.infosig);
+    return newTorrent;
+  };
+
   /**
    * Adds a torrent to be seeded or leeched. If you add files, you are a seeder, if you pass undefined, you are a leech
    * @param {MetainfoFile} metainfo
@@ -92,7 +124,12 @@ export class Client {
 
       torrentManager.addTorrent(metainfo, keyPair);
 
-      this.torrents.push(torrentManager);
+      const infoId = requestContainer.resolve(MetaInfoService).infoIdentifier;
+      if (!infoId) {
+        throw new Error('How did we create a torrent without an infoId?');
+      }
+
+      this.torrents.set(infoId, torrentManager);
       return torrentManager;
     } catch (error) {
       console.error(error);
@@ -121,7 +158,7 @@ export class Client {
     const torrentManager = requestContainer.resolve(TorrentManager);
 
     torrentManager.addTorrent(metainfo);
-    this.torrents.push(torrentManager);
+    this.torrents.set(infoIdentifier, torrentManager);
     return torrentManager;
   };
 

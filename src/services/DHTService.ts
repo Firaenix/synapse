@@ -1,6 +1,6 @@
 import '../../typings/bittorrent-dht';
 
-import DHT from 'bittorrent-dht';
+import DHT, { DHTGetCallbackRes } from 'bittorrent-dht';
 import { inject, injectable } from 'tsyringe';
 
 import { IHashService } from '../../lib/src/services/HashService';
@@ -29,10 +29,10 @@ export class DHTService {
 
   /**
    *
-   * @param key SHA1KeyBuffer
+   * @param {Buffer} key Hash of Public Key
    */
   public get = (key: Buffer) =>
-    new Promise<{ signature: Buffer; value: Buffer }>((res, reject) => {
+    new Promise<DHTGetCallbackRes>((res, reject) => {
       this.dht.get(key, undefined, (err: Error, data) => {
         if (err) {
           return reject(err);
@@ -43,36 +43,33 @@ export class DHTService {
         }
 
         this.logger.log('GET', data);
-        return res({ signature: data.sig!, value: data.v });
+        return res(data);
       });
     });
 
-  public subscribe = (key: Buffer, interval: number, cb: (data) => void) => {
-    let previousData: { signature: Buffer; value: Buffer } | undefined = undefined;
-    setInterval(async () => {
+  public subscribe = (key: Buffer, interval: number, cb: (data: DHTGetCallbackRes, cancel: () => void) => void) => {
+    let previousData: DHTGetCallbackRes | undefined = undefined;
+    const currentInterval = setInterval(async () => {
       try {
         const data = await this.get(key);
-        if (previousData !== undefined && (data.signature.equals(previousData.signature) || data.value.equals(previousData.value))) {
+        if (previousData !== undefined && (data.sig!.equals(previousData.sig!) || data.v.equals(previousData.v))) {
           return;
         }
 
         previousData = data;
-        cb(data);
+        cb(data, () => {
+          clearInterval(currentInterval);
+        });
       } catch (error) {
-        this.logger.error('Got error back from get', error);
+        this.logger.warn('Got error back from get', error);
       }
     }, interval);
   };
 
-  public publish = (keyPair: KeyPair, newIdentifier: Buffer, salt: Buffer | undefined, seq: number) =>
+  public publish = (keyPair: KeyPair, data: Buffer, salt: Buffer | undefined, seq: number) =>
     new Promise<Buffer>((res, reject) => {
       try {
-        const dataBuf = Buffer.from(
-          JSON.stringify({
-            id: newIdentifier,
-            pub: keyPair.publicKey.toString('hex')
-          })
-        );
+        const dataBuf = Buffer.from(data);
 
         this.dht.put(
           {
@@ -97,5 +94,10 @@ export class DHTService {
         this.logger.error(error);
         reject(error);
       }
+    });
+
+  public destroy = () =>
+    new Promise((res) => {
+      this.dht.destroy(res);
     });
 }
