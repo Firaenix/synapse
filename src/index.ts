@@ -125,11 +125,10 @@ export const streamDownloader = new StreamDownloadService(logger);
         const pubKeyHash = hasher.hash(Buffer.from(metainfoFile['pub key']), SupportedHashAlgorithms.sha1);
 
         dhtService.subscribe(pubKeyHash, 1000, async (data, cancel) => {
-          const oldTorrent = torrent;
-
           torrent = await leechInstance.addTorrentByInfoSig(Buffer.from(data.v));
           streamDownloader.download(torrent, `downloads-${data.seq}`);
-          await oldTorrent.stopTorrent();
+          // logger.error('Leecher got new subscription data, stopping old torrent', data);
+          // await oldTorrent.stopTorrent();
         });
       } catch (error) {
         logger.fatal(error);

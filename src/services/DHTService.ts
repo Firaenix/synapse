@@ -42,7 +42,6 @@ export class DHTService {
           return reject(new Error('No data returned'));
         }
 
-        this.logger.log('GET', data);
         return res(data);
       });
     });

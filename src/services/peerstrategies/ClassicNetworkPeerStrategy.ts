@@ -19,13 +19,13 @@ export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents>
     logger.info('Creating ClassicNetworkPeerStrategy', this.id);
     this.swarm = hyperswarm();
   }
-  public stopDiscovery = async (infoHash: Buffer) => {
-    this.logger.info('Leaving channel', infoHash, this.id);
-    this.swarm.leave(infoHash);
+  public stopDiscovery = async (infoIdentifier: Buffer) => {
+    this.logger.info('Leaving channel', infoIdentifier, this.id);
+    this.swarm.leave(infoIdentifier);
   };
 
-  public startDiscovery = (infoHash: Buffer) => {
-    this.swarm.join(infoHash, {
+  public startDiscovery = (infoIdentifier: Buffer) => {
+    this.swarm.join(infoIdentifier, {
       lookup: true, // find & connect to peers
       announce: true // optional- announce self as a connection target
     });
@@ -35,9 +35,10 @@ export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents>
     });
 
     this.swarm.on('connection', (socket, details) => {
-      const wire = new Wire(`TCP-${Math.random().toString(36).substr(2, 9)}`);
+      const id = details?.peer?.host ? `TCP-${details.peer.host}:${details.peer.port}` : `UDP-${Math.random().toString(36).substr(2, 9)}`;
+      const wire = new Wire(id);
       wire.pipe(socket).pipe(wire);
-      this.emit('found', wire, infoHash);
+      this.emit('found', wire, infoIdentifier);
     });
   };
 }
