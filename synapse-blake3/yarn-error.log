@@ -1,0 +1,46 @@
+Arguments: 
+  /Users/firaenix/.nvm/versions/node/v14.8.0/bin/node /Users/firaenix/.yarn/bin/yarn.js add synapse-core
+
+PATH: 
+  /Users/firaenix/.nvm/versions/node/v14.8.0/bin:/Users/firaenix/.krew/bin:/Users/firaenix/.cargo/bin:/Users/firaenix/.yarn/bin:/Users/firaenix/.config/yarn/global/node_modules/.bin:/usr/local/opt/helm@2/bin:/Users/firaenix/.deno/bin:/Users/firaenix/Projects/go/bin:/usr/local/opt/ruby/bin:/Users/firaenix/.nvm/versions/node/v14.8.0/bin:/Users/firaenix/.cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/Users/firaenix/.krew/bin:/Users/firaenix/.cargo/bin:/Users/firaenix/.yarn/bin:/Users/firaenix/.config/yarn/global/node_modules/.bin:/usr/local/opt/helm@2/bin:/Users/firaenix/.deno/bin:/Users/firaenix/Projects/go/bin:/usr/local/opt/ruby/bin:/Users/firaenix/.nvm/versions/node/v14.8.0/bin
+
+Yarn version: 
+  1.22.4
+
+Node version: 
+  14.8.0
+
+Platform: 
+  darwin x64
+
+Trace: 
+  Error: https://registry.yarnpkg.com/synapse-core: Not found
+      at Request.params.callback [as _callback] (/Users/firaenix/.yarn/lib/cli.js:66987:18)
+      at Request.self.callback (/Users/firaenix/.yarn/lib/cli.js:140748:22)
+      at Request.emit (events.js:314:20)
+      at Request.<anonymous> (/Users/firaenix/.yarn/lib/cli.js:141720:10)
+      at Request.emit (events.js:314:20)
+      at IncomingMessage.<anonymous> (/Users/firaenix/.yarn/lib/cli.js:141642:12)
+      at Object.onceWrapper (events.js:420:28)
+      at IncomingMessage.emit (events.js:326:22)
+      at endReadableNT (_stream_readable.js:1244:12)
+      at processTicksAndRejections (internal/process/task_queues.js:80:21)
+
+npm manifest: 
+  {
+    "name": "synapse-blake3",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC"
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile

@@ -1,0 +1,24 @@
+{
+  "name": "node-wrtc",
+  "version": "0.0.1",
+  "description": "node.js web-rtc",
+  "main": "wrtc.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:noritama/node-wrtc.git"
+  },
+  "keywords": [
+    "web-rtc",
+    "wrtc"
+  ],
+  "author": {
+    "name": "noritama",
+    "email": "nori0123@gmail.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/noritama/node-wrtc/issues"
+  },
+  "readmeFilename": "README.md",
+  "homepage": "https://github.com/noritama/node-wrtc"
+}

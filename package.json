@@ -1,86 +1,18 @@
 {
-  "name": "knot-client",
+  "name": "synapse",
   "version": "1.0.0",
-  "description": "A BitTorrent inspired P2P data service ",
+  "description": "",
   "main": "index.js",
-  "scripts": {
-    "start": "ts-node ./src/index.ts",
-    "test": "jest",
-    "build": "tsc",
-    "build-browser": "tsc && browserify ./lib/src/Client.js -o ./dist/client-browser.js",
-    "test-browser": "npx parcel ./dist/index.html",
-    "keys": "ts-node ./src/secp256k1-to-ed25519.ts"
-  },
   "private": true,
-  "keywords": [
-    "bittorrent",
-    "knot",
-    "p2p",
-    "data",
-    "bsv"
-  ],
-  "browser": {
-    "hyperswarm": "hyperswarm-web"
+  "workspaces": ["synapse-core"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Firaenix/knot.git"
   },
-  "author": "Firaenix",
-  "license": "WTFPL",
-  "dependencies": {
-    "@firaenix/bittorrent-protocol": "^4.0.1",
-    "@hyperswarm/dht": "^4.0.1",
-    "@hyperswarm/hypersign": "^2.1.1",
-    "@types/bencode": "^2.0.0",
-    "@types/chalk": "^2.2.0",
-    "@types/chokidar": "^2.1.3",
-    "@types/elliptic": "^6.4.12",
-    "@types/node": "^14.0.27",
-    "@types/readable-stream": "^2.3.9",
-    "@types/secp256k1": "^4.0.1",
-    "@types/simple-peer": "^9.6.0",
-    "@types/stream-chain": "^2.0.0",
-    "@types/stream-json": "^1.5.1",
-    "@types/tape": "^4.13.0",
-    "@types/uuid": "^8.0.0",
-    "@typescript-eslint/eslint-plugin": "^2.29.0",
-    "@typescript-eslint/parser": "^2.29.0",
-    "bencode": "^2.0.1",
-    "bitfield": "^3.0.0",
-    "bittorrent-dht": "^10.0.0",
-    "bittorrent-dht-sodium": "^1.2.0",
-    "blake3": "^2.1.4",
-    "browserify": "^16.5.1",
-    "bsv": "^2.0.0-beta.41",
-    "chalk": "^4.1.0",
-    "chokidar": "^3.4.2",
-    "create-torrent": "^4.4.2",
-    "elliptic": "^6.5.3",
-    "esbuild": "^0.7.9",
-    "eslint": "^7.3.1",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-plugin-prettier": "^3.1.3",
-    "hyperswarm": "^2.15.0",
-    "hyperswarm-web": "^1.0.3",
-    "jest": "^26.4.0",
-    "node-wrtc": "^0.0.1",
-    "prettier": "^2.0.5",
-    "readable-stream": "^3.6.0",
-    "reflect-metadata": "^0.1.13",
-    "secp256k1": "^4.0.2",
-    "stream-chain": "^2.2.3",
-    "stream-json": "^1.7.0",
-    "supercop.wasm": "^5.0.1",
-    "tiny-typed-emitter": "^2.0.2",
-    "ts-jest": "^26.2.0",
-    "tsyringe": "^4.3.0",
-    "txforge": "^0.1.7",
-    "typescript": "^3.9.7",
-    "ut_metadata": "^3.5.1",
-    "uuid": "^8.2.0",
-    "wrtc": "^0.4.6"
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Firaenix/knot/issues"
   },
-  "devDependencies": {
-    "@types/jest": "^26.0.10",
-    "esmify": "^2.1.1",
-    "ts-mockito": "^2.6.1",
-    "ts-node": "^8.10.2"
-  }
+  "homepage": "https://github.com/Firaenix/knot#readme"
 }
