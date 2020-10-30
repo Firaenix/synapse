@@ -5,8 +5,14 @@
   "main": "index.js",
   "author": "",
   "license": "ISC",
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
     "@firaenix/synapse-core": "^1.0.0",
     "blake3": "^2.1.4"
+  },
+  "devDependencies": {
+    "typescript": "^4.0.5"
   }
 }

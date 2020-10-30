@@ -1,11 +1,10 @@
 import Wire from '@firaenix/bittorrent-protocol';
+import { ILogger } from '@firaenix/synapse-core/lib/services/interfaces/ILogger';
+import { IPeerStrategy, PeerStrategyEvents } from '@firaenix/synapse-core/lib/services/interfaces/IPeerStrategy';
 import hyperswarm from 'hyperswarm';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { inject, singleton } from 'tsyringe';
 import { v4 as uuid } from 'uuid';
-
-import { ILogger } from '../interfaces/ILogger';
-import { IPeerStrategy, PeerStrategyEvents } from '../interfaces/IPeerStrategy';
 
 @singleton()
 export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents> implements IPeerStrategy {

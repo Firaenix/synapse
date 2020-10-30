@@ -1,15 +1,16 @@
 import Wire, { EventExtension, ExtendedHandshake, HandshakeExtensions, IExtension } from '@firaenix/bittorrent-protocol';
+import { SECP256K1KeyPair } from '@firaenix/synapse-core/lib/models/SECP256K1KeyPair';
+import { SupportedHashAlgorithms } from '@firaenix/synapse-core/lib/models/SupportedHashAlgorithms';
+import { IHashService } from '@firaenix/synapse-core/lib/services/HashService';
+import { ILogger } from '@firaenix/synapse-core/lib/services/interfaces/ILogger';
+import {
+  SECP256K1SignatureAlgorithm,
+} from '@firaenix/synapse-core/lib/services/signaturealgorithms/SECP256K1SignatureAlgorithm';
 import bencode from 'bencode';
 import { Address, Bn, PrivKey } from 'bsv';
 import { inject } from 'tsyringe';
 import { Forge } from 'txforge';
 import { v4 as uuid } from 'uuid';
-
-import { SECP256K1KeyPair } from '../../models/SECP256K1KeyPair';
-import { SupportedHashAlgorithms } from '../../models/SupportedHashAlgorithms';
-import { IHashService } from '../../services/HashService';
-import { ILogger } from '../../services/interfaces/ILogger';
-import { SECP256K1SignatureAlgorithm } from '../../services/signaturealgorithms/SECP256K1SignatureAlgorithm';
 
 interface BitcoinExtensionEvents {
   error: (error: Error) => void;

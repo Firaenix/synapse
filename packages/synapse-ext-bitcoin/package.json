@@ -1,20 +1,19 @@
 {
-  "name": "@firaenix/synapse-webrtc-peer",
+  "name": "@firaenix/synapse-ext-bitcoin",
   "version": "1.0.0",
-  "description": "",
-  "main": "lib/WebRTCPeerStrategy.js",
+  "main": "index.js",
+  "license": "MIT",
   "scripts": {
     "build": "tsc"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@firaenix/bittorrent-protocol": "^4.0.1",
     "@firaenix/synapse-core": "^1.0.0",
-    "bittorrent-dht": "^10.0.0",
-    "hyperswarm-web": "^2.1.1",
+    "bencode": "^2.0.1",
+    "bsv": "^1.5.4",
     "tiny-typed-emitter": "^2.0.3",
     "tsyringe": "^4.3.0",
+    "txforge": "^0.1.7",
     "uuid": "^8.3.1"
   },
   "devDependencies": {

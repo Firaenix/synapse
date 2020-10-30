@@ -5,8 +5,8 @@ export class Blake3HashAlgorithm implements IHashAlgorithm {
   public algorithm = 'blake3';
 
   constructor(private readonly blakeHasher: blake3.IHasher<any>) {}
-  public hash = (msg: Buffer): Buffer => {
-    return Buffer.from(this.blakeHasher.update(msg).digest());
+  public hash = (msg: Buffer): Promise<Buffer> => {
+    return Promise.resolve(Buffer.from(this.blakeHasher.update(msg).digest()));
   };
 
   public static build = new Promise<Blake3HashAlgorithm>((resolve, reject) => {
