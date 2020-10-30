@@ -1,4 +1,4 @@
-# Knot
+# Synapse
 
 ## A bittorrent inspired, highly modular p2p data transfer system.
 
