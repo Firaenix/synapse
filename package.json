@@ -1,10 +1,12 @@
 {
-  "name": "synapse",
+  "name": "@firaenix/synapse",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "private": true,
-  "workspaces": ["synapse-core"],
+  "workspaces": [
+    "packages/*"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Firaenix/knot.git"
@@ -14,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/Firaenix/knot/issues"
   },
-  "homepage": "https://github.com/Firaenix/knot#readme"
+  "homepage": "https://github.com/Firaenix/knot#readme",
+  "devDependencies": {
+    "lerna": "^3.22.1"
+  }
 }

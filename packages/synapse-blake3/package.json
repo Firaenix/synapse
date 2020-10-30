@@ -1,0 +1,12 @@
+{
+  "name": "@firaenix/synapse-blake3",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@firaenix/synapse-core": "^1.0.0",
+    "blake3": "^2.1.4"
+  }
+}

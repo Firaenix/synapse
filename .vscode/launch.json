@@ -21,7 +21,7 @@
       "type": "node",
       "runtimeVersion": "14.8.0",
       "request": "launch",
-      "args": ["./src/index.ts"],
+      "args": ["./synapse-core/tests/integration/index.ts"],
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
       "sourceMaps": true,
       "cwd": "${workspaceRoot}",
