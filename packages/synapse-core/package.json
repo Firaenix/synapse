@@ -25,7 +25,6 @@
   "license": "WTFPL",
   "dependencies": {
     "@firaenix/bittorrent-protocol": "^4.0.1",
-    "@firaenix/synapse-dht": "^1.0.0",
     "@types/bencode": "^2.0.0",
     "@types/chalk": "^2.2.0",
     "@types/chokidar": "^2.1.3",

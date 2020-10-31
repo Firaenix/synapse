@@ -11,8 +11,8 @@ import { SHA1HashAlgorithm } from './services/hashalgorithms/SHA1HashAlgorithm';
 import { SHA256HashAlgorithm } from './services/hashalgorithms/SHA256HashAlgorithm';
 import { HashService, IHashService } from './services/HashService';
 import { ILogger } from './services/interfaces/ILogger';
-import { KeyPair, SupportedSignatureAlgorithms } from './services/interfaces/ISigningAlgorithm';
-import { ISigningService } from './services/interfaces/ISigningService';
+import { KeyPair } from './services/interfaces/ISigningAlgorithm';
+import { ISigningService, SigningAlgorithmName } from './services/interfaces/ISigningService';
 import { ConsoleLogger } from './services/LogLevelLogger';
 import { MetaInfoService } from './services/MetaInfoService';
 import { PeerManager } from './services/PeerManager';
@@ -60,19 +60,33 @@ export class Client {
   }
 
   generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms): Promise<MetainfoFile>;
-  generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer): Promise<SignedMetainfoFile>;
-  public async generateMetaInfo(diskFiles: DiskFile[], torrentName: string, hashalgo?: SupportedHashAlgorithms, privateKeyBuffer?: Buffer, publicKeyBuffer?: Buffer) {
+  generateMetaInfo(
+    diskFiles: DiskFile[],
+    torrentName: string,
+    hashalgo?: SupportedHashAlgorithms,
+    signingAlgo?: SigningAlgorithmName,
+    privateKeyBuffer?: Buffer,
+    publicKeyBuffer?: Buffer
+  ): Promise<SignedMetainfoFile>;
+  public async generateMetaInfo(
+    diskFiles: DiskFile[],
+    torrentName: string,
+    hashalgo?: SupportedHashAlgorithms,
+    signingAlgo?: SigningAlgorithmName,
+    privateKeyBuffer?: Buffer,
+    publicKeyBuffer?: Buffer
+  ) {
     const hashService = this._dependencyContainer.resolve<IHashService>('IHashService');
     const metainfo = await createMetaInfo(diskFiles, torrentName, hashalgo, hashService);
 
-    if (privateKeyBuffer && publicKeyBuffer) {
+    if (privateKeyBuffer && publicKeyBuffer && signingAlgo) {
       const signingService = this._dependencyContainer.resolve<ISigningService>('ISigningService');
-      const signature = await signingService.sign(metainfo.infohash, SupportedSignatureAlgorithms.secp256k1, privateKeyBuffer, publicKeyBuffer);
+      const signature = await signingService.sign(metainfo.infohash, signingAlgo, privateKeyBuffer, publicKeyBuffer);
 
       return {
         ...metainfo,
         infosig: signature,
-        'infosig algo': signature ? SupportedSignatureAlgorithms.secp256k1 : undefined,
+        'infosig algo': signature ? signingAlgo : undefined,
         'pub key': Buffer.from(publicKeyBuffer)
       } as SignedMetainfoFile;
     }

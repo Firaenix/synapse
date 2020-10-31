@@ -1,10 +1,11 @@
 import { ISigningAlgorithm } from '@firaenix/synapse-core';
 import supercop from 'supercop';
 
+import { ED25519AlgorithmName } from './ED25519AlgorithmName';
 import { ED25519KeyPair } from './ED25519KeyPair';
 
 export class ED25519SuperCopAlgorithm implements ISigningAlgorithm {
-  public readonly algorithm = 'ed25519';
+  public readonly algorithm = ED25519AlgorithmName;
   public isInitialised = false;
 
   public static build = () =>

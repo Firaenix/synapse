@@ -1,5 +1,7 @@
 import { Client as Client2 } from './Client';
 
+export { SigningAlgorithmName } from './services/interfaces/ISigningService';
+
 export { IHashService } from './services/HashService';
 
 export { IHashAlgorithm } from './services/interfaces/IHashAlgorithm';
