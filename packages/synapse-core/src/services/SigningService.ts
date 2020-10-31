@@ -13,15 +13,15 @@ export class SigningService implements ISigningService {
     }
   }
 
-  public sign(data: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms, privateKey: Buffer, publicKey?: Buffer) {
+  public sign(data: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms | string, privateKey: Buffer, publicKey?: Buffer) {
     return this.strategies[supportedSignatureAlgos].sign(data, privateKey, publicKey);
   }
 
-  public generateKeyPair(supportedSignatureAlgos: SupportedSignatureAlgorithms) {
+  public generateKeyPair(supportedSignatureAlgos: SupportedSignatureAlgorithms | string) {
     return this.strategies[supportedSignatureAlgos].generateKeyPair();
   }
 
-  public verify(message: Buffer, signature: Buffer, publicKey: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms) {
+  public verify(message: Buffer, signature: Buffer, publicKey: Buffer, supportedSignatureAlgos: SupportedSignatureAlgorithms | string) {
     return this.strategies[supportedSignatureAlgos].verify(message, signature, publicKey);
   }
 }

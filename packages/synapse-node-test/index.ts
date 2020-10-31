@@ -1,6 +1,7 @@
 import '../synapse-core/src/typings';
 import 'reflect-metadata';
 
+import { DHTService, ED25519KeyPair, ED25519SuperCopAlgorithm } from '@firaenix/synapse-dht';
 import bencode from 'bencode';
 import chokidar from 'chokidar';
 import fs from 'fs';
@@ -12,7 +13,6 @@ import { SupportedHashAlgorithms } from '../synapse-core/src/models/SupportedHas
 import { SHA1HashAlgorithm } from '../synapse-core/src/services/hashalgorithms/SHA1HashAlgorithm';
 import { SHA256HashAlgorithm } from '../synapse-core/src/services/hashalgorithms/SHA256HashAlgorithm';
 import { HashService } from '../synapse-core/src/services/HashService';
-import { SupportedSignatureAlgorithms } from '../synapse-core/src/services/interfaces/ISigningAlgorithm';
 import { ConsoleLogger } from '../synapse-core/src/services/LogLevelLogger';
 import { SECP256K1SignatureAlgorithm } from '../synapse-core/src/services/signaturealgorithms/SECP256K1SignatureAlgorithm';
 import { SigningService } from '../synapse-core/src/services/SigningService';
@@ -27,6 +27,9 @@ export const streamDownloader = new StreamDownloadService(logger);
 
 (async () => {
   try {
+    const seederClient = await Client.buildClient();
+    const leecherClient = await Client.buildClient();
+
     const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)]);
     const dhtService = new DHTService(await ED25519SuperCopAlgorithm.build(), hasher, logger);
 
@@ -36,12 +39,12 @@ export const streamDownloader = new StreamDownloadService(logger);
     const files = CreateFilesFromPaths(paths);
 
     if (process.env.REGEN === 'true') {
-      const { publicKey, secretKey } = await signingService.generateKeyPair(SupportedSignatureAlgorithms.ed25519);
+      const { publicKey, secretKey } = await signingService.generateKeyPair('ed25519');
 
       const serialisedKeys = { secretKey: secretKey.toString('hex'), publicKey: publicKey.toString('hex') };
       fs.writeFileSync('../../torrent_keys.ben', bencode.encode(serialisedKeys));
 
-      const sig = await signingService.sign(Buffer.from('text'), SupportedSignatureAlgorithms.ed25519, Buffer.from(secretKey), Buffer.from(publicKey));
+      const sig = await signingService.sign(Buffer.from('text'), 'ed25519', Buffer.from(secretKey), Buffer.from(publicKey));
       logger.log('SIG', sig);
 
       const seederMetainfo = await new Client().generateMetaInfo(
@@ -74,7 +77,9 @@ export const streamDownloader = new StreamDownloadService(logger);
       // };
 
       // const seederBitcoinExtension = await GenerateBitcoinExtension('./seedkeys.ben');
-      const seederClient = new Client();
+      const seederClient = await Client.buildClient({
+        registration: async () => {}
+      });
       let torrentManager = await seederClient.addTorrentByMetainfo(metainfoFile, keyPair, files);
       await dhtService.publish(keyPair, metainfoFile.infosig, undefined, 0);
 

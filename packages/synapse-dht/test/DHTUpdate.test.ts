@@ -56,7 +56,7 @@ describe('DHT Update Tests', () => {
 
     // Arrange Publisher Variables
     const publisherDHTService = new DHTService(ed25519, hashService, logger);
-    const publisherKeyPair = ed25519.generateKeyPairSync();
+    const publisherKeyPair = await ed25519.generateKeyPair();
 
     // Arrange Listener Variables
     const listenerDHTService = new DHTService(ed25519, hashService, logger);
