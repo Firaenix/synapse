@@ -1,27 +1,26 @@
-import '@firaenix/synapse-core/src/typings';
 import 'reflect-metadata';
 
-import { Client } from '@firaenix/synapse-core/src/Client';
-import { SignedMetainfoFile } from '@firaenix/synapse-core/src/models/MetainfoFile';
-import { SupportedHashAlgorithms } from '@firaenix/synapse-core/src/models/SupportedHashAlgorithms';
-import { SHA1HashAlgorithm } from '@firaenix/synapse-core/src/services/hashalgorithms/SHA1HashAlgorithm';
-import { SHA256HashAlgorithm } from '@firaenix/synapse-core/src/services/hashalgorithms/SHA256HashAlgorithm';
-import { HashService } from '@firaenix/synapse-core/src/services/HashService';
-import { ConsoleLogger } from '@firaenix/synapse-core/src/services/LogLevelLogger';
 import {
+  Client,
+  ConsoleLogger,
+  CreateFilesFromPaths,
+  HashService,
   SECP256K1SignatureAlgorithm,
-} from '@firaenix/synapse-core/src/services/signaturealgorithms/SECP256K1SignatureAlgorithm';
-import { SigningService } from '@firaenix/synapse-core/src/services/SigningService';
-import { StreamDownloadService } from '@firaenix/synapse-core/src/services/StreamDownloadService';
-import { CreateFilesFromPaths } from '@firaenix/synapse-core/src/utils/CreateFilesFromPaths';
-import recursiveReadDir from '@firaenix/synapse-core/src/utils/recursiveReadDir';
-import { DHTService, ED25519KeyPair, ED25519SuperCopAlgorithm } from '@firaenix/synapse-dht';
+  SHA1HashAlgorithm,
+  SHA256HashAlgorithm,
+  SignedMetainfoFile,
+  SigningService,
+  StreamDownloadService,
+  SupportedHashAlgorithms,
+} from '@firaenix/synapse-core';
+import { DHTService, ED25519AlgorithmName, ED25519KeyPair, ED25519SuperCopAlgorithm } from '@firaenix/synapse-dht';
+import { ClassicNetworkPeerStrategy } from '@firaenix/synapse-tcpudp-peer';
 import bencode from 'bencode';
 import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 
-import { ED25519AlgorithmName } from '../synapse-dht/ED25519AlgorithmName';
+import recursiveReadDir from './recursiveReadDir';
 
 export const hasher = new HashService([new SHA1HashAlgorithm(), new SHA256HashAlgorithm()]);
 
@@ -32,6 +31,9 @@ const RegisterDHT = async (ioc) => {
   const superCopAlgo = await ED25519SuperCopAlgorithm.build();
   ioc.registerInstance('ISigningAlgorithm', superCopAlgo);
   ioc.registerInstance(ED25519SuperCopAlgorithm, superCopAlgo);
+
+  ioc.registerInstance('IPeerStrategy', ClassicNetworkPeerStrategy);
+  ioc.registerInstance(ClassicNetworkPeerStrategy, ClassicNetworkPeerStrategy);
 
   return ioc;
 };
@@ -46,7 +48,7 @@ const RegisterDHT = async (ioc) => {
     const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)]);
     const dhtService = new DHTService(await ED25519SuperCopAlgorithm.build(), hasher, logger);
 
-    const readPath = path.join(__dirname, '..', '..', 'torrents');
+    const readPath = path.join(__dirname, 'torrents');
 
     const paths = await recursiveReadDir(readPath);
     const files = CreateFilesFromPaths(paths);
@@ -55,26 +57,19 @@ const RegisterDHT = async (ioc) => {
       const { publicKey, secretKey } = await signingService.generateKeyPair(ED25519AlgorithmName);
 
       const serialisedKeys = { secretKey: secretKey.toString('hex'), publicKey: publicKey.toString('hex') };
-      fs.writeFileSync('../../torrent_keys.ben', bencode.encode(serialisedKeys));
+      fs.writeFileSync(path.join(__dirname, 'torrent_keys.ben'), bencode.encode(serialisedKeys));
 
       const sig = await signingService.sign(Buffer.from('text'), ED25519AlgorithmName, Buffer.from(secretKey), Buffer.from(publicKey));
       logger.log('SIG', sig);
 
-      const seederMetainfo = await seederClient.generateMetaInfo(
-        files,
-        'downoaded_torrents',
-        (await import('@firaenix/synapse-core/src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
-        ED25519AlgorithmName,
-        Buffer.from(secretKey),
-        Buffer.from(publicKey)
-      );
-      fs.writeFileSync('../../mymetainfo.ben', bencode.encode(seederMetainfo));
+      const seederMetainfo = await seederClient.generateMetaInfo(files, 'downoaded_torrents', SupportedHashAlgorithms.sha1, ED25519AlgorithmName, Buffer.from(secretKey), Buffer.from(publicKey));
+      fs.writeFileSync(path.join(__dirname, 'mymetainfo.ben'), bencode.encode(seederMetainfo));
     }
 
-    const metainfobuffer = fs.readFileSync(path.join(__dirname, '..', '..', 'mymetainfo.ben'));
+    const metainfobuffer = fs.readFileSync(path.join(__dirname, 'mymetainfo.ben'));
     const metainfoFile = bencode.decode(metainfobuffer) as SignedMetainfoFile;
 
-    const bencodedKeys = fs.readFileSync(path.join(__dirname, '..', '..', 'torrent_keys.ben'));
+    const bencodedKeys = fs.readFileSync(path.join(__dirname, 'torrent_keys.ben'));
     const deserialisedKeys = bencode.decode(bencodedKeys);
     const publicKeyBuffer = Buffer.from(deserialisedKeys.publicKey.toString(), 'hex');
     const secretKeyBuffer = Buffer.from(deserialisedKeys.secretKey.toString(), 'hex');
@@ -106,7 +101,7 @@ const RegisterDHT = async (ioc) => {
           const seederMetainfo = await seederClient.generateMetaInfo(
             changedFiles,
             'downoaded_torrents',
-            (await import('@firaenix/synapse-core/src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
+            SupportedHashAlgorithms.sha1,
             ED25519AlgorithmName,
             Buffer.from(secretKey),
             Buffer.from(publicKey)
@@ -120,7 +115,7 @@ const RegisterDHT = async (ioc) => {
           console.log('Path change', name, filePath, stats);
 
           changeVersion++;
-          fs.writeFileSync(path.join(__dirname, '..', '..', `mymetainfo_${changeVersion}.ben`), bencode.encode(seederMetainfo));
+          fs.writeFileSync(path.join(__dirname, `mymetainfo_${changeVersion}.ben`), bencode.encode(seederMetainfo));
 
           torrentManager = await seederClient.updateTorrent(torrentManager, seederMetainfo, keyPair, changedFiles);
           await dhtService.publish(keyPair, seederMetainfo.infosig, undefined, changeVersion);

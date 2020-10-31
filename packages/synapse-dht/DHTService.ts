@@ -1,5 +1,3 @@
-import './bittorrent-dht';
-
 import { IHashService, ILogger, KeyPair } from '@firaenix/synapse-core';
 import DHT, { DHTGetCallbackRes } from 'bittorrent-dht';
 import { inject, injectable } from 'tsyringe';

@@ -62,8 +62,10 @@ export class ED25519SuperCopAlgorithm implements ISigningAlgorithm {
       throw new Error('Supercop not initialised');
     }
     seed = seed ?? supercop.createSeed();
-    const keys = supercop.createKeyPair(seed);
+    const keys = await supercop.createKeyPair(seed);
 
+    console.error('SEED', seed);
+    console.error('KEYS', keys);
     const keypair = new ED25519KeyPair(Buffer.from(keys.publicKey), Buffer.from(keys.secretKey));
 
     const isvalid = await keypair.isValidKeyPair();

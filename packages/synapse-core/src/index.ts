@@ -1,5 +1,12 @@
 import { Client as Client2 } from './Client';
 
+export { ConsoleLogger } from './services/LogLevelLogger';
+export { CreateFilesFromPaths } from './utils/CreateFilesFromPaths';
+export { SECP256K1KeyPair } from './models/SECP256K1KeyPair';
+export { SECP256K1SignatureAlgorithm } from './services/signaturealgorithms/SECP256K1SignatureAlgorithm';
+export { SignedMetainfoFile } from './models/MetainfoFile';
+export { SupportedHashAlgorithms } from './models/SupportedHashAlgorithms';
+
 export { SigningAlgorithmName } from './services/interfaces/ISigningService';
 
 export { IHashService } from './services/HashService';
@@ -23,5 +30,6 @@ export { MetadataExtension } from './extensions/Metadata';
 
 export { Client } from './Client';
 
+const Client = Client2;
 export default Client;
-global['Client'] = Client2;
+global['Client'] = Client;

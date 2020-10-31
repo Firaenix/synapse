@@ -198,13 +198,13 @@ export class Client {
     return this._dependencyContainer;
   };
 
-  private registerExtensions = async (requestContainer: DependencyContainer, settings?: Settings): Promise<DependencyContainer> => {
+  private registerExtensions = async (requestContainer: DependencyContainer): Promise<DependencyContainer> => {
     const infoIdentifier = requestContainer.resolve(MetaInfoService).infoIdentifier;
     if (!infoIdentifier) {
       throw new Error('Cant add torrent if we dont have an InfoID');
     }
 
-    for (const extension of settings?.extensions ?? []) {
+    for (const extension of this.settings?.extensions ?? []) {
       requestContainer.register('IExtension', {
         useValue: extension(requestContainer)
       });
@@ -225,18 +225,21 @@ export class Client {
     return new Client(globalContainer, settings);
   };
 
-  public static registerGlobalSingletons = async (container: DependencyContainer) => {
-    container.registerSingleton('IHashService', HashService);
-    container.registerSingleton('ISigningService', SigningService);
-
-    container.registerSingleton('ISigningAlgorithm', SECP256K1SignatureAlgorithm);
-    container.registerSingleton(SECP256K1SignatureAlgorithm, SECP256K1SignatureAlgorithm);
-
+  private static registerGlobalSingletons = async (container: DependencyContainer) => {
     container.registerSingleton('IHashAlgorithm', SHA1HashAlgorithm);
     container.registerSingleton(SHA1HashAlgorithm, SHA1HashAlgorithm);
 
     container.registerSingleton('IHashAlgorithm', SHA256HashAlgorithm);
     container.registerSingleton(SHA256HashAlgorithm, SHA256HashAlgorithm);
+
+    container.registerSingleton('IHashService', HashService);
+    container.registerSingleton(HashService, HashService);
+
+    container.registerSingleton('ISigningService', SigningService);
+    container.registerSingleton(SigningService, SigningService);
+
+    container.registerSingleton('ISigningAlgorithm', SECP256K1SignatureAlgorithm);
+    container.registerSingleton(SECP256K1SignatureAlgorithm, SECP256K1SignatureAlgorithm);
 
     return container;
   };

@@ -28,10 +28,10 @@ export class ED25519KeyPair implements KeyPair {
 
   public isValidKeyPair = async (): Promise<boolean> => {
     const msg = Buffer.from('TEST MESSAGE');
-    const sslkdfasd = await supercop.sign(msg, this.publicKey, this.secretKey);
+    const signedTestMessage = await supercop.sign(msg, this.publicKey, this.secretKey);
 
-    console.log('sslkdfasd', supercop, sslkdfasd);
-    const sig: Buffer = Buffer.from(sslkdfasd);
+    console.log('signedTestMessage', supercop, signedTestMessage);
+    const sig: Buffer = Buffer.from(signedTestMessage);
 
     const isVerified: boolean = await supercop.verify(sig, msg, this.publicKey);
     return isVerified;

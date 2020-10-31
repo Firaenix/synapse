@@ -21,14 +21,14 @@
       "type": "node",
       "runtimeVersion": "14.8.0",
       "request": "launch",
-      "args": ["./synapse-core/tests/integration/index.ts"],
+      "args": ["index.ts"],
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
-      "sourceMaps": true,
-      "cwd": "${workspaceRoot}",
+      "sourceMaps": false,
+      "cwd": "${workspaceRoot}/packages/synapse-node-test",
       "protocol": "inspector",
       "env": {
-        "SEEDING": "true"
-        // "REGEN": "true"
+        "SEEDING": "true",
+        "REGEN": "true"
         // "LEECHING": "true"
       }
     }

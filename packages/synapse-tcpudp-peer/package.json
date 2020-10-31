@@ -1,7 +1,7 @@
 {
   "name": "@firaenix/synapse-tcpudp-peer",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "lib/ClassicNetworkPeerStrategy.js",
   "license": "MIT",
   "scripts": {
     "build": "rm -rf ./lib && tsc"
