@@ -1,4 +1,4 @@
-import '../../src/typings';
+import '../synapse-core/src/typings';
 import 'reflect-metadata';
 
 import bencode from 'bencode';
@@ -6,22 +6,19 @@ import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 
-import { Client } from '../../src/Client';
-import { ED25519KeyPair } from '../../src/models/ED25519KeyPair';
-import { SignedMetainfoFile } from '../../src/models/MetainfoFile';
-import { SupportedHashAlgorithms } from '../../src/models/SupportedHashAlgorithms';
-import { DHTService } from '../../src/services/DHTService';
-import { SHA1HashAlgorithm } from '../../src/services/hashalgorithms/SHA1HashAlgorithm';
-import { SHA256HashAlgorithm } from '../../src/services/hashalgorithms/SHA256HashAlgorithm';
-import { HashService } from '../../src/services/HashService';
-import { SupportedSignatureAlgorithms } from '../../src/services/interfaces/ISigningAlgorithm';
-import { ConsoleLogger } from '../../src/services/LogLevelLogger';
-import { ED25519SuperCopAlgorithm } from '../../src/services/signaturealgorithms/ED25519SuperCopAlgorithm';
-import { SECP256K1SignatureAlgorithm } from '../../src/services/signaturealgorithms/SECP256K1SignatureAlgorithm';
-import { SigningService } from '../../src/services/SigningService';
-import { StreamDownloadService } from '../../src/services/StreamDownloadService';
-import { CreateFilesFromPaths } from '../../src/utils/CreateFilesFromPaths';
-import recursiveReadDir from '../../src/utils/recursiveReadDir';
+import { Client } from '../synapse-core/src/Client';
+import { SignedMetainfoFile } from '../synapse-core/src/models/MetainfoFile';
+import { SupportedHashAlgorithms } from '../synapse-core/src/models/SupportedHashAlgorithms';
+import { SHA1HashAlgorithm } from '../synapse-core/src/services/hashalgorithms/SHA1HashAlgorithm';
+import { SHA256HashAlgorithm } from '../synapse-core/src/services/hashalgorithms/SHA256HashAlgorithm';
+import { HashService } from '../synapse-core/src/services/HashService';
+import { SupportedSignatureAlgorithms } from '../synapse-core/src/services/interfaces/ISigningAlgorithm';
+import { ConsoleLogger } from '../synapse-core/src/services/LogLevelLogger';
+import { SECP256K1SignatureAlgorithm } from '../synapse-core/src/services/signaturealgorithms/SECP256K1SignatureAlgorithm';
+import { SigningService } from '../synapse-core/src/services/SigningService';
+import { StreamDownloadService } from '../synapse-core/src/services/StreamDownloadService';
+import { CreateFilesFromPaths } from '../synapse-core/src/utils/CreateFilesFromPaths';
+import recursiveReadDir from '../synapse-core/src/utils/recursiveReadDir';
 
 export const hasher = new HashService([new SHA1HashAlgorithm(), new SHA256HashAlgorithm()]);
 
@@ -50,7 +47,7 @@ export const streamDownloader = new StreamDownloadService(logger);
       const seederMetainfo = await new Client().generateMetaInfo(
         files,
         'downoaded_torrents',
-        (await import('../../src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
+        (await import('../synapse-core/src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
         Buffer.from(secretKey),
         Buffer.from(publicKey)
       );
@@ -93,7 +90,7 @@ export const streamDownloader = new StreamDownloadService(logger);
           const seederMetainfo = await new Client().generateMetaInfo(
             changedFiles,
             'downoaded_torrents',
-            (await import('../../src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
+            (await import('../synapse-core/src/models/SupportedHashAlgorithms')).SupportedHashAlgorithms.sha1,
             Buffer.from(secretKey),
             Buffer.from(publicKey)
           );

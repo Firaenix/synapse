@@ -5657,7 +5657,7 @@ hyperswarm-web@^2.1.1:
     send "^0.17.1"
     websocket-stream "^5.5.2"
 
-hyperswarm@^2.15.0, hyperswarm@^2.15.2:
+hyperswarm@^2.15.2:
   version "2.15.2"
   resolved "https://registry.yarnpkg.com/hyperswarm/-/hyperswarm-2.15.2.tgz#ef0f33b9266a3f9294f62df3c7c038254a9c4d4b"
   integrity sha512-4TrClGoKJWO+W3LV0bhFVqmt6iZvx4jU0lklqvfsWCXoI8WmdHDC1dXqxMvJlalA6HXJWctgbshKqz+CYUEbhg==

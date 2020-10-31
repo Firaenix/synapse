@@ -1,10 +1,9 @@
 export enum SupportedSignatureAlgorithms {
-  ed25519 = 'ed25519',
   secp256k1 = 'secp256k1'
 }
 
 export interface ISigningAlgorithm {
-  algorithm: SupportedSignatureAlgorithms;
+  algorithm: SupportedSignatureAlgorithms | string;
 
   generateKeyPair: () => Promise<KeyPair>;
   sign: (message: Buffer, privateKey: Buffer, publicKey?: Buffer) => Promise<Buffer>;

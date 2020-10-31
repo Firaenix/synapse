@@ -11,18 +11,6 @@
     "browser": "browserify lib/index.js -o ./lib/index.min.js",
     "test-browser": "npx parcel ./dist/index.html"
   },
-  "browserify": {
-    "transform": [
-      [
-        "babelify",
-        {
-          "presets": [
-            "@babel/preset-env"
-          ]
-        }
-      ]
-    ]
-  },
   "private": true,
   "keywords": [
     "bittorrent",
@@ -32,7 +20,7 @@
     "bsv"
   ],
   "browser": {
-    "./lib/Client.js": "./lib/index.min.js"
+    "./lib/index.js": "./lib/index.min.js"
   },
   "author": "Firaenix",
   "license": "WTFPL",

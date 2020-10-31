@@ -67,12 +67,12 @@ export class Client {
 
     if (privateKeyBuffer && publicKeyBuffer) {
       const signingService = this._dependencyContainer.resolve<ISigningService>('ISigningService');
-      const signature = await signingService.sign(metainfo.infohash, SupportedSignatureAlgorithms.ed25519, privateKeyBuffer, publicKeyBuffer);
+      const signature = await signingService.sign(metainfo.infohash, SupportedSignatureAlgorithms.secp256k1, privateKeyBuffer, publicKeyBuffer);
 
       return {
         ...metainfo,
         infosig: signature,
-        'infosig algo': signature ? SupportedSignatureAlgorithms.ed25519 : undefined,
+        'infosig algo': signature ? SupportedSignatureAlgorithms.secp256k1 : undefined,
         'pub key': Buffer.from(publicKeyBuffer)
       } as SignedMetainfoFile;
     }

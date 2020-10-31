@@ -2,7 +2,7 @@
   "name": "@firaenix/synapse-blake3",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "lib/Blake3HashAlgorithm.js",
   "author": "",
   "license": "ISC",
   "scripts": {

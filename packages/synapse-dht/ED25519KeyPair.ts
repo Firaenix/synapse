@@ -1,6 +1,5 @@
+import { KeyPair } from '@firaenix/synapse-core';
 import supercop from 'supercop';
-
-import { KeyPair } from '../services/interfaces/ISigningAlgorithm';
 
 export class ED25519KeyPair implements KeyPair {
   public readonly publicKey: Buffer;

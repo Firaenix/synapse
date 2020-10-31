@@ -1,4 +1,4 @@
-import { IHashAlgorithm } from '@firaenix/synapse-core/lib/services/interfaces/IHashAlgorithm';
+import { IHashAlgorithm } from '@firaenix/synapse-core';
 import * as blake3 from 'blake3';
 
 export class Blake3HashAlgorithm implements IHashAlgorithm {

@@ -1,26 +1,28 @@
-import { SupportedHashAlgorithms } from '../src/models/SupportedHashAlgorithms';
-import { DHTService } from '../src/services/DHTService';
-import { HashService } from '../src/services/HashService';
-import { ConsoleLogger } from '../src/services/LogLevelLogger';
-import { ED25519SuperCopAlgorithm } from '../src/services/signaturealgorithms/ED25519SuperCopAlgorithm';
-import { wait } from '../src/utils/wait';
+import { SupportedHashAlgorithms } from '@firaenix/synapse-core/lib/models/SupportedHashAlgorithms';
+import { SHA1HashAlgorithm } from '@firaenix/synapse-core/lib/services/hashalgorithms/SHA1HashAlgorithm';
+import { HashService } from '@firaenix/synapse-core/lib/services/HashService';
+import { ConsoleLogger } from '@firaenix/synapse-core/lib/services/LogLevelLogger';
+import { wait } from '@firaenix/synapse-core/lib/utils/wait';
+
+import { DHTService } from '../DHTService';
+import { ED25519SuperCopAlgorithm } from '../ED25519SuperCopAlgorithm';
 
 describe('DHT Update Tests', () => {
   test('Other listeners are notified when an update is published', async (done) => {
     // Arrange Common
     const ed25519 = await ED25519SuperCopAlgorithm.build();
-    const hashService = new HashService();
+    const hashService = new HashService([new SHA1HashAlgorithm()]);
     const logger = new ConsoleLogger();
 
     // Arrange Publisher Variables
     const publisherDHTService = new DHTService(ed25519, hashService, logger);
-    const publisherKeyPair = ed25519.generateKeyPairSync();
+    const publisherKeyPair = await ed25519.generateKeyPair();
     const firstMessage = Buffer.from('Hello, DHT');
     const secondMessage = Buffer.from('Goodbye, DHT');
 
     const keyId = await publisherDHTService.publish(publisherKeyPair, firstMessage, undefined, 0);
 
-    const pubKeyHash = hashService.hash(publisherKeyPair.publicKey, SupportedHashAlgorithms.sha1);
+    const pubKeyHash = await hashService.hash(publisherKeyPair.publicKey, SupportedHashAlgorithms.sha1);
     expect(keyId).toEqual(pubKeyHash);
 
     // Arrange Listener Variables
@@ -49,7 +51,7 @@ describe('DHT Update Tests', () => {
   test('Publish loop 5 times recieved with subscribe', async (done) => {
     // Arrange Common
     const ed25519 = await ED25519SuperCopAlgorithm.build();
-    const hashService = new HashService();
+    const hashService = new HashService([new SHA1HashAlgorithm()]);
     const logger = new ConsoleLogger();
 
     // Arrange Publisher Variables
@@ -62,7 +64,7 @@ describe('DHT Update Tests', () => {
     const values = ['Hello', '42', '3', 'End', 'OneMoreTime', 'Last One'];
 
     // Act
-    const pubKeyHash = hashService.hash(publisherKeyPair.publicKey, SupportedHashAlgorithms.sha1);
+    const pubKeyHash = await hashService.hash(publisherKeyPair.publicKey, SupportedHashAlgorithms.sha1);
     listenerDHTService.subscribe(pubKeyHash, 1000, async (data, cancel) => {
       const expected = values[data.seq!];
 
