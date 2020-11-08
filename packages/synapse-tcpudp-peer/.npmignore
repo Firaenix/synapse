@@ -1,0 +1,8 @@
+.travis.yml
+test/
+node_modules
+.vscode
+.git*
+src
+jest.*
+*.map
