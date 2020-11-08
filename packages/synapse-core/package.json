@@ -1,6 +1,6 @@
 {
   "name": "@firaenix/synapse-core",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "description": "A BitTorrent inspired P2P data service ",
   "main": "./lib/index.js",
   "scripts": {
