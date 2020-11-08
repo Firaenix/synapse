@@ -32,6 +32,9 @@ jobs:
           git config --global user.name 'firaenix'
           git config --global user.email 'firaenix@users.noreply.github.com'
 
+      - name: Install Lerna
+        run: yarn install
+
       - name: Publish
         run: yarn lerna version prerelease --yes
         env:
