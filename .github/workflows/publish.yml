@@ -34,15 +34,9 @@ jobs:
       - name: Install
         run: yarn install
 
-      - name: Version
-        run: yarn lerna version prerelease --yes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Publish
         run: |
+          npm whoami
           echo //registry.npmjs.org/:_authToken=${NPM_TOKEN} > ~/.npmrc
           yarn lerna publish from-package --yes
         env:
