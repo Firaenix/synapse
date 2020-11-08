@@ -26,6 +26,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           scope: '@firaenix'
 
+      - name: Configure CI Git User
+        run: |
+          git config --global user.name 'firaenix'
+          git config --global user.email 'firaenix@users.noreply.github.com'
+
       - name: Install
         run: yarn install
 
