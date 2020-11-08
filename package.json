@@ -7,6 +7,9 @@
   "workspaces": [
     "packages/*"
   ],
+  "scripts": {
+    "publish-ci": "lerna publish from-package -y --no-verify-access"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Firaenix/knot.git"

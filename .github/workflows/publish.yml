@@ -35,8 +35,7 @@ jobs:
         run: yarn install
 
       - name: Publish
-        run: |
-          yarn lerna publish from-package --yes
+        run: yarn publish-ci
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
