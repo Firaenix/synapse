@@ -19,21 +19,21 @@ import bencode from 'bencode';
 import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
+import { DependencyContainer } from 'tsyringe';
 
 import recursiveReadDir from './recursiveReadDir';
 
-export const hasher = new HashService([new SHA1HashAlgorithm(), new SHA256HashAlgorithm()]);
-
 export const logger = new ConsoleLogger();
+export const hasher = new HashService([new SHA1HashAlgorithm(), new SHA256HashAlgorithm()], logger);
 export const streamDownloader = new StreamDownloadService(logger);
 
-const RegisterDHT = async (ioc) => {
+const RegisterDHT = async (ioc: DependencyContainer) => {
   const superCopAlgo = await ED25519SuperCopAlgorithm.build();
   ioc.registerInstance('ISigningAlgorithm', superCopAlgo);
   ioc.registerInstance(ED25519SuperCopAlgorithm, superCopAlgo);
 
-  ioc.registerInstance('IPeerStrategy', ClassicNetworkPeerStrategy);
-  ioc.registerInstance(ClassicNetworkPeerStrategy, ClassicNetworkPeerStrategy);
+  ioc.register('IPeerStrategy', ClassicNetworkPeerStrategy);
+  ioc.register(ClassicNetworkPeerStrategy, ClassicNetworkPeerStrategy);
 
   return ioc;
 };
@@ -45,7 +45,7 @@ const RegisterDHT = async (ioc) => {
       registration: RegisterDHT
     });
 
-    const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)]);
+    const signingService = new SigningService([await ED25519SuperCopAlgorithm.build(), new SECP256K1SignatureAlgorithm(hasher)], logger);
     const dhtService = new DHTService(await ED25519SuperCopAlgorithm.build(), hasher, logger);
 
     const readPath = path.join(__dirname, 'torrents');

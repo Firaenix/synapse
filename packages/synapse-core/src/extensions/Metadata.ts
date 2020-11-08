@@ -6,7 +6,6 @@ import { inject } from 'tsyringe';
 import { isSignedMetainfo, MetainfoFile, SignedMetainfoFile } from '../models/MetainfoFile';
 import { IHashService } from '../services/HashService';
 import { ILogger } from '../services/interfaces/ILogger';
-import { SupportedSignatureAlgorithms } from '../services/interfaces/ISigningAlgorithm';
 import { ISigningService } from '../services/interfaces/ISigningService';
 import { calculatePieceLength } from '../utils/calculatePieceLength';
 import { chunkBuffer } from '../utils/chunkBuffer';
@@ -324,6 +323,8 @@ export class MetadataExtension extends EventExtension<MetadataExtensionEvents> {
       return false;
     }
 
-    return this.signingService.verify(metainfoHashBuf, Buffer.from(infoSig), Buffer.from(metainfo['pub key']), SupportedSignatureAlgorithms[Buffer.from(metainfo['infosig algo']).toString()]);
+    const newMetaSignAlgo = Buffer.from(metainfo['infosig algo']).toString();
+
+    return this.signingService.verify(metainfoHashBuf, Buffer.from(infoSig), Buffer.from(metainfo['pub key']), newMetaSignAlgo);
   };
 }

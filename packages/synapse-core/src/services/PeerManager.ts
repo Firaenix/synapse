@@ -27,8 +27,9 @@ interface PeerEmitter {
 
 @injectable()
 export class PeerManager extends TypedEmitter<PeerEmitter> {
-  private peerId: Buffer;
+  private peerUUID: Buffer;
   private readonly peers: Array<Peer> = [];
+  private _peerId?: Buffer | undefined;
 
   constructor(
     @inject('IHashService')
@@ -45,8 +46,18 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     @inject('ILogger') private readonly logger: ILogger
   ) {
     super();
-    this.peerId = Buffer.from(this.hashService.hash(Buffer.from(uuid()), SupportedHashAlgorithms.sha1));
-    this.logger.log('PEER MANAGER PEERID', this.peerId);
+    this.peerUUID = Buffer.from(uuid());
+
+    this.logger.log('PEER MANAGER PEERID', this.peerUUID);
+
+    this.logger.log(
+      'Peer discovery strats:',
+      peerDiscoveryStrategies.map((x) => x.name)
+    );
+
+    if (!peerDiscoveryStrategies || !peerDiscoveryStrategies.length) {
+      throw new Error('No IPeerStrategy instances registered, unable to continue.');
+    }
 
     for (const strategy of peerDiscoveryStrategies) {
       strategy.on('found', this.onWireConnected);
@@ -120,12 +131,13 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     await peer.request(index, offset, length);
   };
 
-  private onWireConnected = (connectedWire: Wire, infoIdentifier: Buffer) => {
+  private onWireConnected = async (connectedWire: Wire, infoIdentifier: Buffer) => {
     for (const extension of this.extensions) {
       connectedWire.use((w) => extension(w, infoIdentifier, this.metainfoService.metainfo));
     }
 
-    const peer = new Peer(connectedWire, infoIdentifier, this.peerId, this.logger);
+    const peerId = await this.getPeerId();
+    const peer = new Peer(connectedWire, infoIdentifier, peerId, this.logger);
 
     this.addPeer(peer);
   };
@@ -158,4 +170,14 @@ export class PeerManager extends TypedEmitter<PeerEmitter> {
     this.logger.log('PeerManager on request', index, offset, length);
     this.emit(PeerManagerEvents.got_request, peer, index, offset, length);
   };
+
+  private async getPeerId(): Promise<Buffer> {
+    if (this._peerId) {
+      return this._peerId;
+    }
+
+    const peerUUIDSha1 = await this.hashService.hash(this.peerUUID, SupportedHashAlgorithms.sha1);
+    this._peerId = peerUUIDSha1;
+    return this._peerId;
+  }
 }

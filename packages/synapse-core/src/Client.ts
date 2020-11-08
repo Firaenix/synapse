@@ -134,9 +134,9 @@ export class Client {
   public addTorrentByMetainfo = async (metainfo: MetainfoFile, keyPair?: KeyPair, files: Array<DiskFile> = []) => {
     try {
       let requestContainer = await this.registerScopedDependencies(metainfo, files);
-
       requestContainer = await this.registerExtensions(requestContainer);
 
+      console.log('Adding Torrent By Metainfo, creating TorrentManager');
       const torrentManager = requestContainer.resolve(TorrentManager);
 
       torrentManager.addTorrent(metainfo, keyPair);
@@ -164,9 +164,12 @@ export class Client {
 
   private addTorrentByInfoIdentifier = async (infoIdentifier: Buffer) => {
     let requestContainer = await this.registerScopedDependencies(undefined, []);
+    const logger = requestContainer.resolve<ILogger>('ILogger');
 
+    logger.debug('addTorrentByInfoIdentifier', infoIdentifier.toString('hex'));
     const discovery = requestContainer.resolve<TorrentDiscovery>('ITorrentDiscovery');
     const metainfo = await discovery.discoverByInfoSig(infoIdentifier);
+    logger.debug('Got Torrent Metainfo:', metainfo);
 
     // Set up metainfo service and extensions, so we can get going
     requestContainer.resolve(MetaInfoService).metainfo = metainfo;
@@ -180,10 +183,7 @@ export class Client {
   };
 
   private registerScopedDependencies = async (metainfo: MetainfoFile | undefined, files: Array<DiskFile>): Promise<DependencyContainer> => {
-    this._dependencyContainer.registerSingleton(PieceManager);
-
-    this._dependencyContainer.registerSingleton('ILogger', ConsoleLogger);
-
+    this._dependencyContainer.register(PieceManager, PieceManager);
     this._dependencyContainer.register(PeerManager, PeerManager);
 
     this._dependencyContainer.register('ITorrentDiscovery', TorrentDiscovery);
@@ -194,6 +194,7 @@ export class Client {
     }
 
     this._dependencyContainer.registerInstance(MetaInfoService, new MetaInfoService(metainfo, fileChunks));
+    this._dependencyContainer.register(TorrentManager, TorrentManager);
 
     return this._dependencyContainer;
   };
@@ -226,6 +227,8 @@ export class Client {
   };
 
   private static registerGlobalSingletons = async (container: DependencyContainer) => {
+    container.registerSingleton('ILogger', ConsoleLogger);
+
     container.registerSingleton('IHashAlgorithm', SHA1HashAlgorithm);
     container.registerSingleton(SHA1HashAlgorithm, SHA1HashAlgorithm);
 

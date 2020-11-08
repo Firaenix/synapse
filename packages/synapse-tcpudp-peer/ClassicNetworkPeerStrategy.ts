@@ -35,6 +35,9 @@ export class ClassicNetworkPeerStrategy extends TypedEmitter<PeerStrategyEvents>
 
     this.swarm.on('connection', (socket, details) => {
       const id = details?.peer?.host ? `TCP-${details.peer.host}:${details.peer.port}` : `UDP-${Math.random().toString(36).substr(2, 9)}`;
+
+      this.logger.debug('Found new peer: ', id);
+
       const wire = new Wire(id);
       wire.pipe(socket).pipe(wire);
       this.emit('found', wire, infoIdentifier);
