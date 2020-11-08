@@ -1,6 +1,6 @@
 {
   "name": "@firaenix/synapse-node-test",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "main": "index.js",
   "license": "MIT",
   "private": true,
@@ -9,9 +9,9 @@
     "build": "rm -rf ./lib && tsc"
   },
   "dependencies": {
-    "@firaenix/synapse-core": "^1.0.0-alpha.1",
-    "@firaenix/synapse-dht": "^1.0.0-alpha.2",
-    "@firaenix/synapse-tcpudp-peer": "^1.0.0-alpha.2",
+    "@firaenix/synapse-core": "^1.0.0-alpha.3",
+    "@firaenix/synapse-dht": "^1.0.0-alpha.3",
+    "@firaenix/synapse-tcpudp-peer": "^1.0.0-alpha.3",
     "@types/bencode": "^2.0.0",
     "@types/node": "^14.14.6",
     "bencode": "^2.0.1",
