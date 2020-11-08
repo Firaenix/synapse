@@ -1,6 +1,6 @@
 {
   "name": "@firaenix/synapse-tcpudp-peer",
-  "version": "1.0.0-alpha.8",
+  "version": "1.0.0-alpha.9",
   "main": "lib/ClassicNetworkPeerStrategy.js",
   "license": "MIT",
   "scripts": {
@@ -9,7 +9,7 @@
   "private": false,
   "dependencies": {
     "@firaenix/bittorrent-protocol": "^4.0.1",
-    "@firaenix/synapse-core": "^1.0.0-alpha.8",
+    "@firaenix/synapse-core": "^1.0.0-alpha.9",
     "hyperswarm": "^2.15.2",
     "tiny-typed-emitter": "^2.0.3",
     "tsyringe": "^4.3.0",
