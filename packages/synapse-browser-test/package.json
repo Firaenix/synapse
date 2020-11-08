@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "author": "",
   "license": "ISC",
+  "private": true,
   "dependencies": {
     "@firaenix/synapse-core": "^1.0.0",
     "bencode": "^2.0.1",

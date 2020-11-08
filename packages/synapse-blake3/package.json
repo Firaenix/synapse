@@ -8,6 +8,7 @@
   "scripts": {
     "build": "rm -rf ./lib && tsc"
   },
+  "private": true,
   "dependencies": {
     "@firaenix/synapse-core": "^1.0.0",
     "blake3": "^2.1.4"

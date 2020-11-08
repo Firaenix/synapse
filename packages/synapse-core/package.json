@@ -10,7 +10,7 @@
     "browser": "browserify lib/index.js -o ./lib/index.min.js",
     "test-browser": "npx parcel ./dist/index.html"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "bittorrent",
     "knot",
