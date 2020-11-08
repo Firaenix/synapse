@@ -1,8 +1,11 @@
 name: publish
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for publish'
+        required: true
+        default: 'Releasing new version'
 
 env:
   CI: true
