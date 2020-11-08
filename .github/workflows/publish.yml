@@ -1,13 +1,11 @@
 name: publish
 on:
-  # When Release Pull Request is merged
-  pull_request:
-    branches:
-      - master
-    types: [closed]
+  push:
+    branches: [master]
 
 env:
   CI: true
+
 jobs:
   publish:
     name: Publish
@@ -31,12 +29,14 @@ jobs:
 
       - name: Install
         run: yarn install
+
       # Define ${CURRENT_VERSION}
       - name: Set Current Version
         shell: bash -ex {0}
         run: |
           CURRENT_VERSION=$(node -p 'require("./lerna.json").version')
           echo "::set-env name=CURRENT_VERSION::${CURRENT_VERSION}"
+
       - name: Tag Check
         id: tag_check
         shell: bash -ex {0}
@@ -51,6 +51,7 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Git Tag
         if: steps.tag_check.outputs.exists_tag == 'false'
         uses: azu/action-package-version-to-git-tag@v1
@@ -60,6 +61,7 @@ jobs:
           github_repo: ${{ github.repository }}
           git_commit_sha: ${{ github.sha }}
           git_tag_prefix: 'v'
+
       - name: Create Release
         id: create_release
         if: steps.tag_check.outputs.exists_tag == 'false' && github.event.pull_request.merged == true
@@ -74,6 +76,7 @@ jobs:
             ${{ github.event.pull_request.body }}
           draft: false
           prerelease: false
+
       - name: Publish
         if: steps.tag_check.outputs.exists_tag == 'false'
         run: |
@@ -81,13 +84,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/github-script@0.8.0
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'https://github.com/${{ github.repository }}/releases/tag/v${{ env.CURRENT_VERSION }} is released 🎉'
-            })
