@@ -1,6 +1,6 @@
 {
   "name": "@firaenix/synapse-webrtc-peer",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0-alpha.6",
   "description": "",
   "main": "lib/WebRTCPeerStrategy.js",
   "scripts": {
@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@firaenix/bittorrent-protocol": "^4.0.1",
-    "@firaenix/synapse-core": "^1.0.0-alpha.5",
+    "@firaenix/synapse-core": "^1.0.0-alpha.6",
     "bittorrent-dht": "^10.0.0",
     "hyperswarm-web": "^2.1.1",
     "tiny-typed-emitter": "^2.0.3",
