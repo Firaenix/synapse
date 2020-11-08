@@ -1,15 +1,15 @@
-name: publish
+name: version
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - 'master'
 
 env:
   CI: true
 
 jobs:
   publish:
-    name: Publish
+    name: Version
     runs-on: ubuntu-18.04
 
     strategy:
@@ -32,11 +32,8 @@ jobs:
           git config --global user.name 'firaenix'
           git config --global user.email 'firaenix@users.noreply.github.com'
 
-      - name: Install
-        run: yarn install
-
       - name: Publish
-        run: yarn publish-ci
+        run: yarn lerna version prerelease --yes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
