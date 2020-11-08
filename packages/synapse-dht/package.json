@@ -6,7 +6,7 @@
   "scripts": {
     "build": "rm -rf ./lib && tsc"
   },
-  "private": true,
+  "private": false,
   "author": "",
   "license": "ISC",
   "dependencies": {
